@@ -66,6 +66,15 @@
             autoHammer: false,
             sound: true,
             fastCutscene: false
+        },
+
+        // 스마트 자동 분류 필터 (Auto-Filter)
+        autoFilter: {
+            enabled: false,
+            minTier: 'Rare',
+            minQuality: 100,
+            minEnhance: 0,
+            minPower: 0
         }
     };
 
@@ -319,6 +328,123 @@
 
         showToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
         autoSave();
+
+        // 7. 스마트 자동 분류 (Auto-Filter) 판정 및 즉시 처리
+        checkAutoFilterTrigger(selectedWeapon, currentPwr);
+    }
+
+    // 티어 순위 맵 (Common < Uncommon < Rare < Epic < Legendary < Mythic < Godly)
+    const TIER_ORDER = {
+        'Common': 1,
+        'Uncommon': 2,
+        'Rare': 3,
+        'Epic': 4,
+        'Legendary': 5,
+        'Mythic': 6,
+        'Godly': 7
+    };
+
+    function checkAutoFilterTrigger(weaponDef, power) {
+        if (!state.autoFilter || !state.autoFilter.enabled) return;
+
+        const filter = state.autoFilter;
+        const weaponTierRank = TIER_ORDER[weaponDef.tier] || 1;
+        const minTierRank = TIER_ORDER[filter.minTier] || 1;
+
+        // 모든 기준 충족 여부 검사 (티어, 품질, 강화 단계, 파워)
+        const meetsTier = weaponTierRank >= minTierRank;
+        const meetsQuality = state.currentQuality >= (filter.minQuality || 0);
+        const meetsEnhance = state.currentEnhancement >= (filter.minEnhance || 0);
+        const meetsPower = power >= (filter.minPower || 0);
+
+        const meetsAllCriteria = meetsTier && meetsQuality && meetsEnhance && meetsPower;
+
+        if (meetsAllCriteria) {
+            // 기준 이상: 인벤토리에 자동 보관 시도
+            if (state.inventory.length >= state.maxInventorySlots) {
+                showToast(`⚠️ [자동 보관 실패] 인벤토리가 가득 차 작업대에 보관되었습니다!`, 'warning');
+            } else {
+                showToast(`🛡️ [자동 보관] 기준 충족: ${weaponDef.name} (+${state.currentEnhancement}, ${state.currentQuality}%)`, 'success');
+                claimCurrentWeaponToInventory();
+            }
+        } else {
+            // 기준 미달: 자동 분해(판매)
+            showToast(`♻️ [자동 분해] 필터 미달 무기를 골드로 환전했습니다.`, 'info');
+            salvageCurrentWeapon();
+        }
+    }
+
+    // 스마트 자동 분류 컨트롤 UI 동기화 및 이벤트 등록
+    function initAutoFilterControls() {
+        const toggle = document.getElementById('auto-filter-enable-toggle');
+        const minTierSel = document.getElementById('filter-min-tier');
+        const minQualInput = document.getElementById('filter-min-quality');
+        const minEnhSel = document.getElementById('filter-min-enhance');
+        const minPwrInput = document.getElementById('filter-min-power');
+        const hintEl = document.getElementById('auto-filter-status-hint');
+
+        if (!toggle) return;
+
+        // 기존 저장값으로 UI 복원
+        toggle.checked = !!state.autoFilter.enabled;
+        if (minTierSel && state.autoFilter.minTier) minTierSel.value = state.autoFilter.minTier;
+        if (minQualInput && state.autoFilter.minQuality !== undefined) minQualInput.value = state.autoFilter.minQuality;
+        if (minEnhSel && state.autoFilter.minEnhance !== undefined) minEnhSel.value = state.autoFilter.minEnhance;
+        if (minPwrInput && state.autoFilter.minPower !== undefined) minPwrInput.value = state.autoFilter.minPower;
+
+        function updateFilterHint() {
+            if (!hintEl) return;
+            if (state.autoFilter.enabled) {
+                hintEl.innerHTML = `🟢 <b>자동 분류 활성:</b> [${state.autoFilter.minTier} 이상] AND [품질 ${state.autoFilter.minQuality}% 이상] AND [강화 +${state.autoFilter.minEnhance} 이상] AND [공격력 ${state.autoFilter.minPower} 이상] ➔ <b>인벤토리 보관</b> / 미달 ➔ <b>자동 분해(판매)</b>`;
+                hintEl.style.borderLeftColor = '#00ffaa';
+                hintEl.style.color = '#e2e8f0';
+            } else {
+                hintEl.innerHTML = `💡 자동 분류 비활성화 상태입니다. 제련된 무기를 수동으로 보관하거나 분해하세요.`;
+                hintEl.style.borderLeftColor = '#38bdf8';
+                hintEl.style.color = '#94a3b8';
+            }
+        }
+
+        updateFilterHint();
+
+        toggle.addEventListener('change', () => {
+            state.autoFilter.enabled = toggle.checked;
+            updateFilterHint();
+            showToast(state.autoFilter.enabled ? '⚙️ 스마트 자동 분류 활성화됨!' : '⚙️ 스마트 자동 분류 꺼짐', 'info');
+            autoSave();
+        });
+
+        if (minTierSel) {
+            minTierSel.addEventListener('change', () => {
+                state.autoFilter.minTier = minTierSel.value;
+                updateFilterHint();
+                autoSave();
+            });
+        }
+
+        if (minQualInput) {
+            minQualInput.addEventListener('change', () => {
+                state.autoFilter.minQuality = parseInt(minQualInput.value, 10) || 0;
+                updateFilterHint();
+                autoSave();
+            });
+        }
+
+        if (minEnhSel) {
+            minEnhSel.addEventListener('change', () => {
+                state.autoFilter.minEnhance = parseInt(minEnhSel.value, 10) || 0;
+                updateFilterHint();
+                autoSave();
+            });
+        }
+
+        if (minPwrInput) {
+            minPwrInput.addEventListener('change', () => {
+                state.autoFilter.minPower = parseInt(minPwrInput.value, 10) || 0;
+                updateFilterHint();
+                autoSave();
+            });
+        }
     }
 
     function getRuneDef(runeId) {
@@ -386,6 +512,7 @@
 
         // 작업대 상태 리셋 (새 무기 제작 준비)
         resetWorkbench();
+        renderInventoryList();
         updateUI();
         autoSave();
     }
@@ -565,6 +692,7 @@
         window.SoundFX.playBuySound();
 
         showToast(`⚒️ [${def.title}] 레벨 ${state.upgrades[upgradeId]} 달성!`, 'success');
+        renderUpgradesList();
         updateUI();
         autoSave();
     }
@@ -595,6 +723,7 @@
         window.SoundFX.playBuySound();
 
         showToast(`⚔️ [${dDef.name}] 원정대 탐험 시작!`, 'success');
+        renderDungeonsList();
         updateUI();
         autoSave();
     }
@@ -833,19 +962,13 @@
         }
         document.getElementById('roll-rune-btn').disabled = state.ore < 50;
 
-        // 6. Upgrades View
-        renderUpgradesList();
+        // 6. Upgrades Button State (DOM을 파괴하지 않고 disabled/텍스트 상태만 갱신)
+        updateUpgradeButtonsState();
 
-        // 7. Inventory View
-        renderInventoryList();
+        // 7. Dungeons Button State
+        updateDungeonButtonsState();
 
-        // 8. Weapon Codex View
-        renderCodexList();
-
-        // 9. Dungeons View
-        renderDungeonsList();
-
-        // 10. Ascension View
+        // 8. Ascension View
         const pending = getPendingFlames();
         document.getElementById('pending-flames').innerText = `+${pending} 🔥`;
         document.getElementById('current-flame-mult').innerText = `x${getFlameMultiplier().toFixed(2)}`;
@@ -869,27 +992,43 @@
 
             const card = document.createElement('div');
             card.className = `upgrade-card ${isMax ? 'locked' : ''}`;
+            card.id = `upg-card-${def.id}`;
             card.innerHTML = `
                 <div class="upg-info">
                     <span class="upg-title">${def.title}</span>
                     <span class="upg-desc">${def.desc}</span>
-                    <span class="upg-level">레벨: ${currentLvl} / ${def.maxLevel}</span>
+                    <span class="upg-level" id="upg-lvl-${def.id}">레벨: ${currentLvl} / ${def.maxLevel}</span>
                 </div>
-                <button class="buy-upg-btn" ${canAfford ? '' : 'disabled'}>
+                <button class="buy-upg-btn" id="upg-btn-${def.id}" data-id="${def.id}" ${canAfford ? '' : 'disabled'}>
                     ${isMax ? 'MAXED' : `${formatNumber(cost)} 🪙`}
                 </button>
             `;
 
-            // [버그 수정] 인라인 onclick 대신 완벽한 리스너 바인딩
-            const btn = card.querySelector('.buy-upg-btn');
-            if (btn && !isMax) {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    buyUpgrade(def.id);
-                });
-            }
-
             container.appendChild(card);
+        });
+    }
+
+    // 매 프레임 DOM 파괴 없이 버튼 활성화/비활성화 상태만 효율적으로 업데이트
+    function updateUpgradeButtonsState() {
+        window.UPGRADES_DATABASE.forEach(def => {
+            const btn = document.getElementById(`upg-btn-${def.id}`);
+            const lvlEl = document.getElementById(`upg-lvl-${def.id}`);
+            if (!btn) return;
+
+            const currentLvl = state.upgrades[def.id] || 0;
+            const cost = Math.floor(def.baseCost * Math.pow(def.costMul, currentLvl));
+            const isMax = currentLvl >= def.maxLevel;
+            const canAfford = state.gold >= cost && !isMax;
+
+            btn.disabled = !canAfford;
+            if (isMax) {
+                btn.innerText = 'MAXED';
+            } else {
+                btn.innerText = `${formatNumber(cost)} 🪙`;
+            }
+            if (lvlEl) {
+                lvlEl.innerText = `레벨: ${currentLvl} / ${def.maxLevel}`;
+            }
         });
     }
 
@@ -1041,26 +1180,21 @@
 
             const card = document.createElement('div');
             card.className = `upgrade-card ${isUnlocked ? 'unlocked' : ''}`;
+            card.id = `dungeon-card-${d.id}`;
             card.innerHTML = `
                 <div class="upg-info">
-                    <span class="upg-title">${d.name} ${isUnlocked ? '⚔️ [원정 중]' : '🔒'}</span>
+                    <span class="upg-title" id="dungeon-title-${d.id}">${d.name} ${isUnlocked ? '⚔️ [원정 중]' : '🔒'}</span>
                     <span class="upg-desc">${d.desc}</span>
                     <span class="upg-level">요구 전투력: ${formatNumber(d.reqPower)} | 수익: +${formatNumber(d.goldPerSec)} Gold/s, +${d.orePerSec} Ore/s</span>
                 </div>
-                ${isUnlocked ? '<span style="color:#00ffaa; font-weight:800; font-size:0.85rem;">탐험 가동 중</span>' : `
-                    <button class="buy-upg-btn" ${canAfford ? '' : 'disabled'}>
-                        해금: ${formatNumber(d.cost)} 🪙
-                    </button>
-                `}
+                <div id="dungeon-action-${d.id}">
+                    ${isUnlocked ? '<span style="color:#00ffaa; font-weight:800; font-size:0.85rem;">탐험 가동 중</span>' : `
+                        <button class="buy-upg-btn" id="dungeon-btn-${d.id}" data-id="${d.id}" ${canAfford ? '' : 'disabled'}>
+                            해금: ${formatNumber(d.cost)} 🪙
+                        </button>
+                    `}
+                </div>
             `;
-
-            const btn = card.querySelector('.buy-upg-btn');
-            if (btn && !isUnlocked) {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    unlockDungeon(d.id);
-                });
-            }
 
             container.appendChild(card);
         });
@@ -1068,6 +1202,35 @@
         document.getElementById('exp-total-dps').innerText = formatNumber(currentDPS);
         document.getElementById('exp-passive-income').innerText = `+${formatNumber(totalGoldPerSec)} Gold/s`;
         document.getElementById('exp-passive-ore').innerText = `+${totalOrePerSec.toFixed(1)} Ore/s`;
+    }
+
+    // 매 프레임 던전 버튼 활성화 상태 및 합산 통계만 갱신
+    function updateDungeonButtonsState() {
+        const currentDPS = getMercenaryTotalDPS();
+        let totalGoldPerSec = 0;
+        let totalOrePerSec = 0;
+
+        window.DUNGEONS_DATABASE.forEach(d => {
+            const isUnlocked = (state.dungeons[d.id] || 0) > 0;
+            const canAfford = state.gold >= d.cost && currentDPS >= d.reqPower;
+
+            if (isUnlocked) {
+                totalGoldPerSec += d.goldPerSec;
+                totalOrePerSec += d.orePerSec;
+            }
+
+            const btn = document.getElementById(`dungeon-btn-${d.id}`);
+            if (btn && !isUnlocked) {
+                btn.disabled = !canAfford;
+            }
+        });
+
+        const dpsEl = document.getElementById('exp-total-dps');
+        const incEl = document.getElementById('exp-passive-income');
+        const oreEl = document.getElementById('exp-passive-ore');
+        if (dpsEl) dpsEl.innerText = formatNumber(currentDPS);
+        if (incEl) incEl.innerText = `+${formatNumber(totalGoldPerSec)} Gold/s`;
+        if (oreEl) oreEl.innerText = `+${totalOrePerSec.toFixed(1)} Ore/s`;
     }
 
     // ------------------------------------------------------------------------
@@ -1096,6 +1259,7 @@
                 state.codex = Object.assign({}, parsed.codex || {});
                 state.inventory = Array.isArray(parsed.inventory) ? parsed.inventory : [];
                 state.settings = Object.assign({}, defaultState.settings, parsed.settings || {});
+                state.autoFilter = Object.assign({}, defaultState.autoFilter, parsed.autoFilter || {});
                 showToast('💾 저장된 게임 데이터를 성공적으로 불러왔습니다!', 'info');
             }
         } catch (e) {
@@ -1243,8 +1407,46 @@
                 const targetId = btn.getAttribute('data-tab');
                 const targetEl = document.getElementById(targetId);
                 if (targetEl) targetEl.classList.add('active');
+
+                // 탭 전환 시 필요한 목록 즉시 최신화
+                if (targetId === 'tab-upgrades') renderUpgradesList();
+                if (targetId === 'tab-inventory') renderInventoryList();
+                if (targetId === 'tab-codex') renderCodexList();
+                if (targetId === 'tab-expedition') renderDungeonsList();
             });
         });
+
+        // 9-1. 업그레이드 및 던전 이벤트 위임 (이벤트 누락 방지 & 고속 클릭 보장)
+        const upgradesListEl = document.getElementById('upgrades-list');
+        if (upgradesListEl) {
+            upgradesListEl.addEventListener('click', (e) => {
+                const btn = e.target.closest('.buy-upg-btn');
+                if (btn && !btn.disabled) {
+                    const upgId = btn.getAttribute('data-id');
+                    if (upgId) buyUpgrade(upgId);
+                }
+            });
+        }
+
+        const dungeonListEl = document.getElementById('dungeon-list');
+        if (dungeonListEl) {
+            dungeonListEl.addEventListener('click', (e) => {
+                const btn = e.target.closest('.buy-upg-btn');
+                if (btn && !btn.disabled) {
+                    const dunId = btn.getAttribute('data-id');
+                    if (dunId) unlockDungeon(dunId);
+                }
+            });
+        }
+
+        // 9-2. 스마트 자동 분류 (Auto-Filter) 입력 이벤트 바인딩
+        initAutoFilterControls();
+
+        // 9-3. 최초 업그레이드, 인벤토리, 도감, 던전 UI 빌드
+        renderUpgradesList();
+        renderInventoryList();
+        renderCodexList();
+        renderDungeonsList();
 
         // 10. 인벤토리 정렬 필터 변경
         const sortSelect = document.getElementById('inv-sort-select');

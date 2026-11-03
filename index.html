@@ -163,6 +163,68 @@
                         <span>💰 분해하여 판매 (+<b id="salvage-gold-preview">0</b> 🪙)</span>
                     </button>
                 </div>
+
+                <!-- 스마트 자동 분류 (Auto-Filter) 제어 패널 -->
+                <div class="auto-filter-card">
+                    <div class="auto-filter-header">
+                        <div class="filter-title-group">
+                            <span class="filter-icon">⚙️</span>
+                            <div>
+                                <span class="filter-main-title">스마트 자동 분류 (Auto-Filter)</span>
+                                <span class="filter-sub-desc">조건 미달 시 자동 분해(판매), 조건 충족 시 인벤토리 자동 보관</span>
+                            </div>
+                        </div>
+                        <label class="switch-toggle" title="자동 분류 활성화">
+                            <input type="checkbox" id="auto-filter-enable-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="auto-filter-grid" id="auto-filter-controls-group">
+                        <div class="filter-item">
+                            <label for="filter-min-tier">최소 희귀도(티어)</label>
+                            <select id="filter-min-tier" class="filter-select">
+                                <option value="Common">Common (일반 이상)</option>
+                                <option value="Uncommon">Uncommon (고급 이상)</option>
+                                <option value="Rare" selected>Rare (희귀 이상)</option>
+                                <option value="Epic">Epic (영웅 이상)</option>
+                                <option value="Legendary">Legendary (전설 이상)</option>
+                                <option value="Mythic">Mythic (신화 이상)</option>
+                                <option value="Godly">Godly (신급 이상)</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-min-quality">최소 품질 (Quality)</label>
+                            <div class="filter-input-row">
+                                <input type="number" id="filter-min-quality" class="filter-input" min="50" max="150" value="100" step="5">
+                                <span class="unit">% 이상</span>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-min-enhance">최소 강화 단계 (+)</label>
+                            <select id="filter-min-enhance" class="filter-select">
+                                <option value="0" selected>+0 이상 (모두)</option>
+                                <option value="1">+1 이상</option>
+                                <option value="2">+2 이상</option>
+                                <option value="3">+3 이상</option>
+                                <option value="4">+4 이상</option>
+                                <option value="5">+5 이상</option>
+                                <option value="6">+6 이상</option>
+                                <option value="7">+7 (최대 강화만)</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <label for="filter-min-power">최소 공격력 (Power)</label>
+                            <div class="filter-input-row">
+                                <input type="number" id="filter-min-power" class="filter-input" min="0" max="999999999" value="0" step="50">
+                                <span class="unit">⚡ 이상</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="auto-filter-status-hint" id="auto-filter-status-hint">
+                        💡 자동 분류 비활성화 상태입니다. 수동으로 무기를 보관하거나 분해하세요.
+                    </div>
+                </div>
             </section>
 
             <!-- 우측: 종합 관리 대시보드 (탭 시스템) -->
