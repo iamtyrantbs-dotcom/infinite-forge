@@ -1,0 +1,744 @@
+:root {
+    --bg-dark: #0a0a0f;
+    --panel-bg: rgba(18, 18, 28, 0.75);
+    --panel-border: rgba(255, 120, 40, 0.25);
+    --accent-fire: #ff6600;
+    --accent-gold: #ffb703;
+    --accent-cyan: #00e5ff;
+    --accent-mythic: #bf00ff;
+    --text-main: #f0f3f6;
+    --text-muted: #8892a0;
+    --font-cinzel: 'Cinzel', serif;
+    --font-main: 'Outfit', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+body {
+    background-color: var(--bg-dark);
+    background-image: 
+        radial-gradient(circle at 50% 30%, rgba(255, 80, 0, 0.12) 0%, transparent 60%),
+        radial-gradient(circle at 10% 80%, rgba(140, 0, 255, 0.08) 0%, transparent 50%),
+        linear-gradient(to bottom, #07070b, #0d0d15);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+#particle-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.game-container {
+    position: relative;
+    z-index: 2;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 24px;
+    gap: 16px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ---------------- HUD HEADER ---------------- */
+.hud-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 12px 24px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 12px var(--accent-fire));
+    animation: pulseIcon 2s infinite alternate;
+}
+
+@keyframes pulseIcon {
+    from { transform: scale(1); filter: drop-shadow(0 0 8px var(--accent-fire)); }
+    to { transform: scale(1.1); filter: drop-shadow(0 0 16px #ff3300); }
+}
+
+.brand-text h1 {
+    font-family: var(--font-cinzel);
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #fff, #ffaa00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-text .sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.currencies {
+    display: flex;
+    gap: 16px;
+}
+
+.curr-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 6px 14px;
+    min-width: 140px;
+}
+
+.curr-card.gold { border-color: rgba(255, 183, 3, 0.3); }
+.curr-card.ore { border-color: rgba(0, 229, 255, 0.3); }
+.curr-card.flame { border-color: rgba(255, 70, 0, 0.4); }
+
+.curr-icon {
+    font-size: 1.4rem;
+}
+
+.curr-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.curr-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.curr-val {
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.curr-card.gold .curr-val { color: var(--accent-gold); }
+.curr-card.ore .curr-val { color: var(--accent-cyan); }
+.curr-card.flame .curr-val { color: #ff5533; }
+
+/* ---------------- MAIN VIEWPORT ---------------- */
+.main-viewport {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ---------------- FORGE SECTION (LEFT) ---------------- */
+.forge-section {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 20px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+}
+
+.weapon-stage {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 100, 0, 0.12) 0%, rgba(0,0,0,0.5) 80%);
+    border: 1px solid rgba(255, 120, 0, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.weapon-glow {
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 60px rgba(255, 102, 0, 0.15);
+    pointer-events: none;
+    transition: all 0.3s;
+}
+
+.weapon-graphic-wrap {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.weapon-icon {
+    font-size: 4.5rem;
+    filter: drop-shadow(0 0 20px rgba(255, 150, 0, 0.5));
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.weapon-info {
+    margin-top: 10px;
+}
+
+.weapon-header {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.weapon-rank-badge {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+.weapon-power-badge {
+    background: rgba(255, 183, 3, 0.15);
+    border: 1px solid var(--accent-gold);
+    color: var(--accent-gold);
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.current-weapon-name {
+    font-family: var(--font-cinzel);
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    color: #fff;
+    text-shadow: 0 0 12px rgba(255, 120, 0, 0.4);
+}
+
+.weapon-stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.weapon-stats-row b {
+    color: var(--text-main);
+}
+
+/* ---------------- PROGRESS ---------------- */
+.progress-wrap {
+    margin: 10px 0;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #aaa;
+}
+
+.progress-track {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: 14px;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff5500, #ffb703);
+    box-shadow: 0 0 15px #ff8800;
+    transition: width 0.08s ease-out;
+}
+
+/* ---------------- ANVIL BUTTON ---------------- */
+.anvil-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px 0;
+    position: relative;
+}
+
+.anvil-button {
+    background: linear-gradient(135deg, #2b1f1d, #191416);
+    border: 2px solid #ff7700;
+    box-shadow: 0 0 25px rgba(255, 100, 0, 0.3), inset 0 0 15px rgba(255, 140, 0, 0.2);
+    border-radius: 24px;
+    width: 240px;
+    height: 140px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.05s, box-shadow 0.1s;
+}
+
+.anvil-button:active {
+    transform: scale(0.95);
+    box-shadow: 0 0 40px rgba(255, 120, 0, 0.6);
+}
+
+.hammer-visual {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    font-size: 3rem;
+    transform-origin: bottom right;
+    transition: transform 0.08s ease-out;
+    pointer-events: none;
+}
+
+.anvil-button:active .hammer-visual {
+    transform: rotate(-45deg) translate(-10px, 15px);
+}
+
+.anvil-metal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.anvil-icon {
+    font-size: 2.8rem;
+    filter: drop-shadow(0 0 8px #ff7700);
+}
+
+.anvil-text {
+    font-family: var(--font-cinzel);
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #ffcc00;
+    text-shadow: 0 0 10px rgba(255, 200, 0, 0.5);
+}
+
+/* ---------------- FORGE ACTIONS ---------------- */
+.forge-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.forge-ctrl-btn {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.forge-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.forge-ctrl-btn.highlight {
+    background: linear-gradient(135deg, rgba(255, 183, 3, 0.2), rgba(255, 100, 0, 0.2));
+    border-color: var(--accent-gold);
+    color: var(--accent-gold);
+}
+
+.forge-ctrl-btn.highlight:hover {
+    box-shadow: 0 0 15px rgba(255, 183, 3, 0.3);
+}
+
+/* ---------------- PANEL SECTION (RIGHT) ---------------- */
+.panel-section {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+}
+
+.tabs-nav {
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 14px 10px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: #fff;
+}
+
+.tab-btn.active {
+    color: #fff;
+    border-bottom: 2px solid var(--accent-fire);
+    background: rgba(255, 100, 0, 0.08);
+}
+
+.tab-btn.flame-tab.active {
+    border-bottom-color: #ff3300;
+    color: #ff5533;
+}
+
+.tab-content {
+    display: none;
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
+.tab-header h3 {
+    font-family: var(--font-cinzel);
+    font-size: 1.15rem;
+    margin-bottom: 4px;
+}
+
+.tab-header p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ---------------- CARDS & UPGRADES ---------------- */
+.cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.upgrade-card {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.upgrade-card:hover:not(.locked) {
+    border-color: rgba(255, 120, 0, 0.4);
+    background: rgba(255, 120, 0, 0.04);
+}
+
+.upgrade-card.locked {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.upg-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.upg-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+}
+
+.upg-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.upg-level {
+    font-size: 0.75rem;
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.buy-upg-btn {
+    background: linear-gradient(135deg, rgba(255, 120, 0, 0.2), rgba(255, 200, 0, 0.2));
+    border: 1px solid var(--accent-fire);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.buy-upg-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: #555;
+}
+
+.buy-upg-btn:not(:disabled):active {
+    transform: scale(0.95);
+}
+
+/* ---------------- RUNE ALTAR ---------------- */
+.rune-altar-card {
+    background: radial-gradient(circle at 50% 50%, rgba(191, 0, 255, 0.15) 0%, rgba(0,0,0,0.5) 80%);
+    border: 1px solid rgba(191, 0, 255, 0.3);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.rune-icon {
+    font-size: 3rem;
+    filter: drop-shadow(0 0 15px var(--accent-mythic));
+}
+
+.rune-name {
+    font-family: var(--font-cinzel);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.rune-effect {
+    font-size: 0.85rem;
+    color: #aaa;
+    max-width: 380px;
+}
+
+.altar-btn {
+    background: linear-gradient(135deg, rgba(191, 0, 255, 0.3), rgba(0, 229, 255, 0.3));
+    border: 1px solid var(--accent-mythic);
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(191, 0, 255, 0.3);
+}
+
+.altar-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ---------------- EXPEDITION ---------------- */
+.expedition-summary {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+/* ---------------- REBIRTH ---------------- */
+.rebirth-card {
+    background: radial-gradient(circle at 50% 50%, rgba(255, 50, 0, 0.15) 0%, rgba(0,0,0,0.6) 80%);
+    border: 1px solid rgba(255, 50, 0, 0.4);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.rebirth-flame-icon {
+    font-size: 3.5rem;
+    filter: drop-shadow(0 0 20px #ff3300);
+}
+
+.rebirth-payout h2 {
+    font-family: var(--font-cinzel);
+    font-size: 2rem;
+    color: #ff4500;
+    margin-top: 4px;
+    text-shadow: 0 0 15px rgba(255, 69, 0, 0.6);
+}
+
+.ascend-button {
+    background: linear-gradient(135deg, #ff3300, #7928ca);
+    border: 1px solid #ff5533;
+    color: #fff;
+    font-family: var(--font-cinzel);
+    font-weight: 900;
+    letter-spacing: 2px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 0 25px rgba(255, 50, 0, 0.5);
+}
+
+.ascend-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ---------------- CINEMATIC CUTSCENE ---------------- */
+#cutscene-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(8px);
+    transition: opacity 0.4s ease;
+}
+
+#cutscene-overlay.hidden {
+    display: none;
+    opacity: 0;
+}
+
+.cs-letterbox {
+    position: absolute;
+    width: 100%;
+    height: 80px;
+    background: #000;
+    z-index: 2;
+}
+
+.cs-letterbox.top { top: 0; }
+.cs-letterbox.bottom { bottom: 0; }
+
+.cs-glow-bg {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    animation: pulseGlow 1.5s infinite alternate;
+}
+
+@keyframes pulseGlow {
+    from { transform: scale(0.9); opacity: 0.3; }
+    to { transform: scale(1.1); opacity: 0.5; }
+}
+
+.cs-content {
+    position: relative;
+    z-index: 3;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    animation: zoomReveal 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes zoomReveal {
+    from { transform: scale(0.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.cs-subtitle {
+    font-size: 0.9rem;
+    letter-spacing: 4px;
+    color: #aaa;
+    text-transform: uppercase;
+}
+
+.cs-weapon-preview {
+    font-size: 6rem;
+    filter: drop-shadow(0 0 35px var(--accent-fire));
+    animation: floatWeapon 2s ease-in-out infinite;
+}
+
+@keyframes floatWeapon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.cs-title {
+    font-family: var(--font-cinzel);
+    font-size: 2.8rem;
+    letter-spacing: 2px;
+    color: #fff;
+}
+
+.cs-rarity {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    letter-spacing: 1px;
+}
+
+.cs-quote {
+    font-style: italic;
+    color: #bbb;
+    font-size: 0.95rem;
+    max-width: 450px;
+}
+
+/* ---------------- FLOATING NUMBER ---------------- */
+.floating-hit {
+    position: fixed;
+    pointer-events: none;
+    font-family: var(--font-cinzel);
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: #ffb703;
+    text-shadow: 0 0 10px rgba(255, 120, 0, 0.8);
+    z-index: 5000;
+    animation: floatUp 0.6s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% { transform: translate(-50%, -50%) scale(0.7); opacity: 1; }
+    50% { transform: translate(-50%, -80px) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -120px) scale(1); opacity: 0; }
+}

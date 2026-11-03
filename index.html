@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Forge - 전설의 대장간</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 캔버스 파티클 레이어 -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- 시네마틱 컷신 오버레이 -->
+    <div id="cutscene-overlay" class="hidden">
+        <div class="cs-letterbox top"></div>
+        <div class="cs-letterbox bottom"></div>
+        <div class="cs-glow-bg" id="cs-glow"></div>
+        <div class="cs-content">
+            <div class="cs-subtitle" id="cs-subtitle">MYTHIC DISCOVERY</div>
+            <div class="cs-weapon-preview" id="cs-weapon-symbol">⚔️</div>
+            <h1 class="cs-title" id="cs-weapon-name">Ragnarok Blade</h1>
+            <p class="cs-rarity" id="cs-weapon-rarity">1 in 100,000</p>
+            <p class="cs-quote" id="cs-quote">"별들이 침묵하고, 대지가 울부짖는다."</p>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <!-- 상단 헤더: 재화 및 성장 지표 -->
+        <header class="hud-header">
+            <div class="brand">
+                <span class="brand-icon">🔥</span>
+                <div class="brand-text">
+                    <h1>INFINITE FORGE</h1>
+                    <span class="sub">Legendary Crafter</span>
+                </div>
+            </div>
+
+            <div class="currencies">
+                <div class="curr-card gold">
+                    <span class="curr-icon">🪙</span>
+                    <div class="curr-info">
+                        <span class="curr-label">Gold</span>
+                        <span class="curr-val" id="disp-gold">0</span>
+                    </div>
+                </div>
+
+                <div class="curr-card ore">
+                    <span class="curr-icon">💎</span>
+                    <div class="curr-info">
+                        <span class="curr-label">Ether Ore</span>
+                        <span class="curr-val" id="disp-ore">0</span>
+                    </div>
+                </div>
+
+                <div class="curr-card flame">
+                    <span class="curr-icon">🌋</span>
+                    <div class="curr-info">
+                        <span class="curr-label">Primordial Flame</span>
+                        <span class="curr-val" id="disp-flame">0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 메인 작업 영역 -->
+        <main class="main-viewport">
+            <!-- 좌측: 모루 & 제련 인터페이스 -->
+            <section class="forge-section">
+                <!-- 제련 진행 중인 무기 표시 -->
+                <div class="weapon-stage">
+                    <div class="weapon-glow" id="weapon-glow"></div>
+                    <div class="weapon-graphic-wrap">
+                        <div id="weapon-icon" class="weapon-icon">🗡️</div>
+                    </div>
+                    <div class="weapon-info">
+                        <div class="weapon-header">
+                            <span class="weapon-rank-badge" id="weapon-tier-badge">Common</span>
+                            <span class="weapon-power-badge" id="weapon-multiplier">x1.0 Multiplier</span>
+                        </div>
+                        <h2 class="current-weapon-name" id="weapon-name">Rusty Dagger</h2>
+                        <div class="weapon-stats-row">
+                            <span>Power: <b id="weapon-power">10</b></span>
+                            <span>Quality: <b id="weapon-quality">100%</b></span>
+                            <span>Rarity: <b id="weapon-rarity-rate">1/1</b></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 제련 프로그레스 바 -->
+                <div class="progress-wrap">
+                    <div class="progress-labels">
+                        <span>Hammering Progress</span>
+                        <span id="forge-pct">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="forge-bar" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- 거대한 모루 타격 버튼 -->
+                <div class="anvil-wrapper">
+                    <button id="anvil-btn" class="anvil-button" title="클릭하여 모루를 두드립니다!">
+                        <div class="hammer-visual" id="hammer-sprite">🔨</div>
+                        <div class="anvil-metal">
+                            <span class="anvil-icon">⚒️</span>
+                            <span class="anvil-text">STRIKE ANVIL</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- 하단 액션 버튼들 -->
+                <div class="forge-actions">
+                    <button id="auto-hammer-btn" class="forge-ctrl-btn">
+                        <span>🤖 Auto Hammer: <b id="auto-hammer-status">OFF</b></span>
+                    </button>
+                    <button id="equip-or-sell-btn" class="forge-ctrl-btn highlight">
+                        <span>💰 Salvage Weapon (+<b id="salvage-gold-preview">0</b> Gold)</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 우측: 업그레이드, 룬 인챈트, 던전 원정, 환생 탭 -->
+            <aside class="panel-section">
+                <nav class="tabs-nav">
+                    <button class="tab-btn active" data-tab="tab-upgrades">⚒️ Forging</button>
+                    <button class="tab-btn" data-tab="tab-runes">🔮 Runes (RNG)</button>
+                    <button class="tab-btn" data-tab="tab-expedition">⚔️ Expedition</button>
+                    <button class="tab-btn flame-tab" data-tab="tab-rebirth">🌋 Ascension</button>
+                </nav>
+
+                <!-- 1. 제련 업그레이드 탭 -->
+                <div id="tab-upgrades" class="tab-content active">
+                    <div class="tab-header">
+                        <h3>Blacksmith Upgrades</h3>
+                        <p>망치 파워와 자동 제련 효율을 극대화합니다.</p>
+                    </div>
+                    <div id="upgrades-list" class="cards-list"></div>
+                </div>
+
+                <!-- 2. 룬 인챈트 (RNG 가챠) 탭 -->
+                <div id="tab-runes" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Ancient Rune Altar</h3>
+                        <p>무기에 태초의 접두사/접미사를 무작위로 인챈트합니다.</p>
+                    </div>
+                    <div class="rune-altar-card">
+                        <div class="altar-preview">
+                            <span class="rune-icon" id="rune-roll-icon">✨</span>
+                            <div class="rune-name" id="active-rune-name">No Rune Attached</div>
+                            <div class="rune-effect" id="active-rune-desc">에테르 광석을 소모해 고대 룬을 추출하세요.</div>
+                        </div>
+                        <div class="rune-buttons">
+                            <button id="roll-rune-btn" class="altar-btn">
+                                <span>🎲 Inscribe Rune (Cost: <b id="rune-cost">50</b> Ore)</span>
+                            </button>
+                        </div>
+                    </div>
+                    <h4 style="margin-top:15px; margin-bottom:8px; color:#aaa; font-size:0.85rem;">KNOWN RUNE ROSTER</h4>
+                    <div id="rune-collection-list" class="cards-list mini"></div>
+                </div>
+
+                <!-- 3. 원정대 (방치형 골드/광석 채굴) 탭 -->
+                <div id="tab-expedition" class="tab-content">
+                    <div class="tab-header">
+                        <h3>Dungeon Expeditions</h3>
+                        <p>제련한 무기를 용병단에 장착시켜 자원을 자동으로 파밍합니다.</p>
+                    </div>
+                    <div class="expedition-summary">
+                        <div>Mercenary Attack Power: <b id="exp-total-dps" style="color:#00ffaa;">0</b></div>
+                        <div>Passive Income: <b id="exp-passive-income" style="color:#ffd700;">+0 Gold/s</b> | <b id="exp-passive-ore" style="color:#00e5ff;">+0 Ore/s</b></div>
+                    </div>
+                    <div id="dungeon-list" class="cards-list"></div>
+                </div>
+
+                <!-- 4. 환생 (Ascension) 탭 -->
+                <div id="tab-rebirth" class="tab-content">
+                    <div class="tab-header">
+                        <h3 style="color:#ff5533;">Primordial Flame Ascension</h3>
+                        <p>장비를 불태워 환생하고 영구적인 글로벌 제작 배수를 얻습니다.</p>
+                    </div>
+                    <div class="rebirth-card">
+                        <div class="rebirth-flame-icon">🌋</div>
+                        <h4>IGNITE THE WORLD</h4>
+                        <p>현재 보유 골드 및 무기 진행도를 태초의 불꽃으로 승화시킵니다.</p>
+                        <div class="rebirth-payout">
+                            <span>Pending Flame Points:</span>
+                            <h2 id="pending-flames">+0 🔥</h2>
+                        </div>
+                        <div class="rebirth-multiplier-stat">
+                            <span>Current Global Multiplier:</span>
+                            <b id="current-flame-mult">x1.00</b>
+                        </div>
+                        <button id="ascend-btn" class="ascend-button" disabled>
+                            ASCEND TO ASHES
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- 오디오 이펙트용 웹 오디오/신스 내장 -->
+    <script src="game.js"></script>
+</body>
+</html>
