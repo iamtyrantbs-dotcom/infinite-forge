@@ -6,14 +6,17 @@
     <title>Infinite Forge - 전설의 대장간</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- 캔버스 파티클 레이어 -->
+    <!-- 배경 파티클 캔버스 -->
     <canvas id="particle-canvas"></canvas>
 
-    <!-- 시네마틱 컷신 오버레이 -->
+    <!-- 플로팅 토스트 컨테이너 -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- 시네마틱 컷신 오버레이 (Sol's RNG Style) -->
     <div id="cutscene-overlay" class="hidden">
         <div class="cs-letterbox top"></div>
         <div class="cs-letterbox bottom"></div>
@@ -24,22 +27,41 @@
             <h1 class="cs-title" id="cs-weapon-name">Ragnarok Blade</h1>
             <p class="cs-rarity" id="cs-weapon-rarity">1 in 100,000</p>
             <p class="cs-quote" id="cs-quote">"별들이 침묵하고, 대지가 울부짖는다."</p>
+            <button class="cs-skip-btn" id="cs-skip-btn">TOUCH TO CONTINUE</button>
         </div>
     </div>
 
+    <!-- 무기 상세 정보 팝업 모달 -->
+    <div id="item-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span class="modal-badge" id="modal-tier-badge">TIER</span>
+                <button class="modal-close-btn" id="modal-close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-icon" id="modal-icon">🗡️</div>
+                <h2 class="modal-title" id="modal-title">Weapon Name</h2>
+                <div class="modal-stats" id="modal-stats"></div>
+                <p class="modal-lore" id="modal-lore">설명</p>
+            </div>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- 전체 게임 레이아웃 -->
     <div class="game-container">
-        <!-- 상단 헤더: 재화 및 성장 지표 -->
+        <!-- 상단 헤더 HUD: 재화 & 세이브/리셋 상태 -->
         <header class="hud-header">
             <div class="brand">
                 <span class="brand-icon">🔥</span>
                 <div class="brand-text">
                     <h1>INFINITE FORGE</h1>
-                    <span class="sub">Legendary Crafter</span>
+                    <span class="sub">Legendary Crafter RPG & RNG</span>
                 </div>
             </div>
 
             <div class="currencies">
-                <div class="curr-card gold">
+                <div class="curr-card gold" title="무기 분해 및 원정대에서 획득하는 골드">
                     <span class="curr-icon">🪙</span>
                     <div class="curr-info">
                         <span class="curr-label">Gold</span>
@@ -47,7 +69,7 @@
                     </div>
                 </div>
 
-                <div class="curr-card ore">
+                <div class="curr-card ore" title="모루 타격 및 원정에서 채굴하는 에테르 광석">
                     <span class="curr-icon">💎</span>
                     <div class="curr-info">
                         <span class="curr-label">Ether Ore</span>
@@ -55,21 +77,36 @@
                     </div>
                 </div>
 
-                <div class="curr-card flame">
+                <div class="curr-card flame" title="환생(승화)을 통해 축적하는 태초의 불꽃">
                     <span class="curr-icon">🌋</span>
                     <div class="curr-info">
-                        <span class="curr-label">Primordial Flame</span>
+                        <span class="curr-label">Flame</span>
                         <span class="curr-val" id="disp-flame">0</span>
                     </div>
                 </div>
+
+                <div class="curr-card dps" title="용병단 총 전투력">
+                    <span class="curr-icon">⚡</span>
+                    <div class="curr-info">
+                        <span class="curr-label">Mercenary DPS</span>
+                        <span class="curr-val" id="disp-total-dps">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 세이브 & 컨트롤 버튼 -->
+            <div class="header-controls">
+                <button id="save-btn" class="hud-icon-btn" title="진행상황 저장">💾</button>
+                <button id="sound-btn" class="hud-icon-btn" title="사운드 토글">🔊</button>
+                <button id="hard-reset-btn" class="hud-icon-btn danger" title="전체 데이터 초기화">⚠️</button>
             </div>
         </header>
 
-        <!-- 메인 작업 영역 -->
+        <!-- 메인 게임 뷰포트 -->
         <main class="main-viewport">
-            <!-- 좌측: 모루 & 제련 인터페이스 -->
+            <!-- 좌측: 모루 대장간 구역 -->
             <section class="forge-section">
-                <!-- 제련 진행 중인 무기 표시 -->
+                <!-- 제련 작업대 카드 -->
                 <div class="weapon-stage">
                     <div class="weapon-glow" id="weapon-glow"></div>
                     <div class="weapon-graphic-wrap">
@@ -79,20 +116,22 @@
                         <div class="weapon-header">
                             <span class="weapon-rank-badge" id="weapon-tier-badge">Common</span>
                             <span class="weapon-power-badge" id="weapon-multiplier">x1.0 Multiplier</span>
+                            <span class="weapon-status-badge" id="weapon-status-badge">Forging...</span>
                         </div>
-                        <h2 class="current-weapon-name" id="weapon-name">Rusty Dagger</h2>
+                        <h2 class="current-weapon-name" id="weapon-name">초보자의 녹슨 단검</h2>
                         <div class="weapon-stats-row">
                             <span>Power: <b id="weapon-power">10</b></span>
                             <span>Quality: <b id="weapon-quality">100%</b></span>
                             <span>Rarity: <b id="weapon-rarity-rate">1/1</b></span>
+                            <span>Enhance: <b id="weapon-enhance">+0</b></span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 제련 프로그레스 바 -->
+                <!-- 제련 진행 게이지 -->
                 <div class="progress-wrap">
                     <div class="progress-labels">
-                        <span>Hammering Progress</span>
+                        <span>🔨 Hammering Progress</span>
                         <span id="forge-pct">0%</span>
                     </div>
                     <div class="progress-track">
@@ -100,101 +139,147 @@
                     </div>
                 </div>
 
-                <!-- 거대한 모루 타격 버튼 -->
+                <!-- 거대한 중앙 모루 버튼 -->
                 <div class="anvil-wrapper">
-                    <button id="anvil-btn" class="anvil-button" title="클릭하여 모루를 두드립니다!">
+                    <button id="anvil-btn" class="anvil-button" title="모루를 두드려 무기를 제련합니다!">
                         <div class="hammer-visual" id="hammer-sprite">🔨</div>
                         <div class="anvil-metal">
                             <span class="anvil-icon">⚒️</span>
                             <span class="anvil-text">STRIKE ANVIL</span>
+                            <span class="anvil-subtext" id="anvil-power-hint">+10% per hit</span>
                         </div>
                     </button>
                 </div>
 
-                <!-- 하단 액션 버튼들 -->
+                <!-- 제련 액션 컨트롤 바 -->
                 <div class="forge-actions">
                     <button id="auto-hammer-btn" class="forge-ctrl-btn">
                         <span>🤖 Auto Hammer: <b id="auto-hammer-status">OFF</b></span>
                     </button>
-                    <button id="equip-or-sell-btn" class="forge-ctrl-btn highlight">
-                        <span>💰 Salvage Weapon (+<b id="salvage-gold-preview">0</b> Gold)</span>
+                    <button id="claim-to-inv-btn" class="forge-ctrl-btn claim" disabled>
+                        <span>🎒 보관함(인벤토리)에 보관</span>
+                    </button>
+                    <button id="equip-or-sell-btn" class="forge-ctrl-btn highlight" disabled>
+                        <span>💰 분해하여 판매 (+<b id="salvage-gold-preview">0</b> 🪙)</span>
                     </button>
                 </div>
             </section>
 
-            <!-- 우측: 업그레이드, 룬 인챈트, 던전 원정, 환생 탭 -->
+            <!-- 우측: 종합 관리 대시보드 (탭 시스템) -->
             <aside class="panel-section">
                 <nav class="tabs-nav">
-                    <button class="tab-btn active" data-tab="tab-upgrades">⚒️ Forging</button>
-                    <button class="tab-btn" data-tab="tab-runes">🔮 Runes (RNG)</button>
-                    <button class="tab-btn" data-tab="tab-expedition">⚔️ Expedition</button>
-                    <button class="tab-btn flame-tab" data-tab="tab-rebirth">🌋 Ascension</button>
+                    <button class="tab-btn active" data-tab="tab-upgrades">⚒️ 대장간 강화</button>
+                    <button class="tab-btn" data-tab="tab-inventory">🎒 인벤토리 (<span id="inv-count-badge">0/30</span>)</button>
+                    <button class="tab-btn" data-tab="tab-codex">📖 무기 도감 (<span id="codex-count-badge">0/32</span>)</button>
+                    <button class="tab-btn" data-tab="tab-runes">🔮 룬 인챈트</button>
+                    <button class="tab-btn" data-tab="tab-expedition">⚔️ 원정대</button>
+                    <button class="tab-btn flame-tab" data-tab="tab-rebirth">🌋 승화(환생)</button>
                 </nav>
 
                 <!-- 1. 제련 업그레이드 탭 -->
                 <div id="tab-upgrades" class="tab-content active">
                     <div class="tab-header">
-                        <h3>Blacksmith Upgrades</h3>
-                        <p>망치 파워와 자동 제련 효율을 극대화합니다.</p>
+                        <h3>대장간 시설 업그레이드</h3>
+                        <p>타격 파워, 자동 풀무질, 희귀 광석 채굴 확률을 영구적으로 강화합니다.</p>
                     </div>
                     <div id="upgrades-list" class="cards-list"></div>
                 </div>
 
-                <!-- 2. 룬 인챈트 (RNG 가챠) 탭 -->
+                <!-- 2. 인벤토리 탭 (신규) -->
+                <div id="tab-inventory" class="tab-content">
+                    <div class="tab-header flex-header">
+                        <div>
+                            <h3>무기 보관함 (Inventory)</h3>
+                            <p>제련한 무기를 보관하고, 장착하거나 골드로 분해할 수 있습니다.</p>
+                        </div>
+                        <div class="inv-filter-controls">
+                            <select id="inv-sort-select" class="dark-select">
+                                <option value="power">전투력 순</option>
+                                <option value="tier">티어 순</option>
+                                <option value="enhance">강화도 순</option>
+                                <option value="recent">최신 순</option>
+                            </select>
+                            <button id="inv-sell-all-common" class="mini-btn danger">일반/고급 일괄분해</button>
+                        </div>
+                    </div>
+                    <div class="equipped-slot-card" id="equipped-slot-view">
+                        <span class="equipped-tag">🌟 대표 장착 무기 (용병단 지휘검)</span>
+                        <div class="equipped-content" id="equipped-weapon-display">
+                            <span class="none-text">장착된 무기가 없습니다. 인벤토리에서 무기를 장착하세요.</span>
+                        </div>
+                    </div>
+                    <div id="inventory-grid" class="inventory-grid"></div>
+                </div>
+
+                <!-- 3. 무기 도감 탭 (신규) -->
+                <div id="tab-codex" class="tab-content">
+                    <div class="tab-header flex-header">
+                        <div>
+                            <h3>전설의 무기 도감 (Weapon Codex)</h3>
+                            <p>발견한 무기의 비밀을 해금하고 영구적인 글로벌 보너스를 획득하세요.</p>
+                        </div>
+                        <div class="codex-stats-pill">
+                            <span>도감 완성률: <b id="codex-completion-pct" style="color:var(--accent-gold);">0%</b></span>
+                        </div>
+                    </div>
+                    <div id="codex-grid" class="codex-grid"></div>
+                </div>
+
+                <!-- 4. 룬 인챈트 탭 -->
                 <div id="tab-runes" class="tab-content">
                     <div class="tab-header">
-                        <h3>Ancient Rune Altar</h3>
-                        <p>무기에 태초의 접두사/접미사를 무작위로 인챈트합니다.</p>
+                        <h3>고대 룬 제단 (Rune Altar)</h3>
+                        <p>에테르 광석을 소모하여 현재 무기에 강력한 접두사 룬을 무작위로 각인합니다.</p>
                     </div>
                     <div class="rune-altar-card">
                         <div class="altar-preview">
                             <span class="rune-icon" id="rune-roll-icon">✨</span>
-                            <div class="rune-name" id="active-rune-name">No Rune Attached</div>
-                            <div class="rune-effect" id="active-rune-desc">에테르 광석을 소모해 고대 룬을 추출하세요.</div>
+                            <div class="rune-name" id="active-rune-name">각인된 룬 없음</div>
+                            <div class="rune-effect" id="active-rune-desc">에테르 광석 50개를 소모해 고대 룬을 추출하세요.</div>
                         </div>
                         <div class="rune-buttons">
                             <button id="roll-rune-btn" class="altar-btn">
-                                <span>🎲 Inscribe Rune (Cost: <b id="rune-cost">50</b> Ore)</span>
+                                <span>🎲 룬 각인 (비용: <b id="rune-cost">50</b> 💎)</span>
                             </button>
                         </div>
                     </div>
-                    <h4 style="margin-top:15px; margin-bottom:8px; color:#aaa; font-size:0.85rem;">KNOWN RUNE ROSTER</h4>
+                    <h4 class="sub-section-title">발견 가능한 고대 룬 목록</h4>
                     <div id="rune-collection-list" class="cards-list mini"></div>
                 </div>
 
-                <!-- 3. 원정대 (방치형 골드/광석 채굴) 탭 -->
+                <!-- 5. 원정대 (방치형 던전) 탭 -->
                 <div id="tab-expedition" class="tab-content">
                     <div class="tab-header">
-                        <h3>Dungeon Expeditions</h3>
-                        <p>제련한 무기를 용병단에 장착시켜 자원을 자동으로 파밍합니다.</p>
+                        <h3>던전 원정대 (Expeditions)</h3>
+                        <p>용병단에 무기를 지급하고 던전을 탐험시켜 지속적인 자원을 생산합니다.</p>
                     </div>
                     <div class="expedition-summary">
-                        <div>Mercenary Attack Power: <b id="exp-total-dps" style="color:#00ffaa;">0</b></div>
-                        <div>Passive Income: <b id="exp-passive-income" style="color:#ffd700;">+0 Gold/s</b> | <b id="exp-passive-ore" style="color:#00e5ff;">+0 Ore/s</b></div>
+                        <div>용병단 총 공격력: <b id="exp-total-dps" style="color:#00ffaa;">0</b></div>
+                        <div>초당 자동 수익: <b id="exp-passive-income" style="color:#ffd700;">+0 Gold/s</b> | <b id="exp-passive-ore" style="color:#00e5ff;">+0 Ore/s</b></div>
                     </div>
                     <div id="dungeon-list" class="cards-list"></div>
                 </div>
 
-                <!-- 4. 환생 (Ascension) 탭 -->
+                <!-- 6. 승화 (환생) 탭 -->
                 <div id="tab-rebirth" class="tab-content">
                     <div class="tab-header">
-                        <h3 style="color:#ff5533;">Primordial Flame Ascension</h3>
-                        <p>장비를 불태워 환생하고 영구적인 글로벌 제작 배수를 얻습니다.</p>
+                        <h3 style="color:#ff5533;">태초의 불꽃 승화 (Ascension)</h3>
+                        <p>현재 진행도를 불태워 우주의 에너지를 흡수하고, 영구 글로벌 제작 배수를 얻습니다.</p>
                     </div>
                     <div class="rebirth-card">
                         <div class="rebirth-flame-icon">🌋</div>
                         <h4>IGNITE THE WORLD</h4>
-                        <p>현재 보유 골드 및 무기 진행도를 태초의 불꽃으로 승화시킵니다.</p>
+                        <p>모든 골드와 일반 업그레이드를 태워 태초의 불꽃으로 승화합니다.<br><small style="color:#bbb;">(주의: 인벤토리의 최고급 무기와 도감 해금 기록은 영구 보존됩니다!)</small></p>
                         <div class="rebirth-payout">
-                            <span>Pending Flame Points:</span>
+                            <span>획득 예정 태초의 불꽃:</span>
                             <h2 id="pending-flames">+0 🔥</h2>
                         </div>
                         <div class="rebirth-multiplier-stat">
-                            <span>Current Global Multiplier:</span>
+                            <span>현재 승화 글로벌 배수:</span>
                             <b id="current-flame-mult">x1.00</b>
                         </div>
                         <button id="ascend-btn" class="ascend-button" disabled>
-                            ASCEND TO ASHES
+                            승화하여 환생하기 (ASCEND)
                         </button>
                     </div>
                 </div>
@@ -202,7 +287,10 @@
         </main>
     </div>
 
-    <!-- 오디오 이펙트용 웹 오디오/신스 내장 -->
+    <!-- 스크립트 연결 -->
+    <script src="js/database.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/particles.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

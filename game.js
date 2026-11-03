@@ -1,612 +1,1281 @@
-// ==========================================
-// INFINITE FORGE ENGINE
-// ==========================================
+// ============================================================================
+// INFINITE FORGE - FULL EXPANDED CORE ENGINE (game.js)
+// Over 1,200+ lines of robust incremental systems, persistence & fix logic
+// ============================================================================
 
-const gameState = {
-    gold: 0,
-    ore: 20,
-    flame: 0,
-    hammerClicks: 0,
-    forgeProgress: 0,
-    currentWeaponIndex: 0,
-    currentEnhancement: 0,
-    activeRune: null,
-    autoHammer: false,
-    
-    // Upgrades
-    upgrades: {
-        hammerPower: 0,
-        anvilQuality: 0,
-        bellowsSpeed: 0,
-        oreMagnet: 0
-    },
+(function () {
+    'use strict';
 
-    // Dungeons
-    dungeons: {
-        goblinCave: 0,
-        dragonLair: 0,
-        abyssalRift: 0
-    },
+    // ------------------------------------------------------------------------
+    // 1. GAME STATE & PERSISTENCE SPECIFICATION
+    // ------------------------------------------------------------------------
 
-    // Stats
-    totalWeaponsForged: 0,
-    bestWeaponTier: 0
-};
+    const SAVE_KEY = 'InfiniteForge_SaveData_v2';
 
-// ---------------- WEAPON ROSTER ----------------
-const WEAPONS = [
-    { id: 'w1', name: 'Rusty Dagger', icon: '🗡️', basePower: 10, rarityRate: '1/1', tier: 'Common', color: '#aaaaaa' },
-    { id: 'w2', name: 'Iron Broadsword', icon: '⚔️', basePower: 35, rarityRate: '1/5', tier: 'Uncommon', color: '#4ade80' },
-    { id: 'w3', name: 'Obsidian Cleaver', icon: '🪓', basePower: 120, rarityRate: '1/25', tier: 'Rare', color: '#38bdf8' },
-    { id: 'w4', name: 'Sunforged Halberd', icon: '🔱', basePower: 450, rarityRate: '1/150', tier: 'Epic', color: '#a855f7' },
-    { id: 'w5', name: 'Dragonbone Katana', icon: '⚡', basePower: 1800, rarityRate: '1/1,000', tier: 'Legendary', color: '#f59e0b', cutscene: true },
-    { id: 'w6', name: 'Astral Voidblade', icon: '🌌', basePower: 7500, rarityRate: '1/10,000', tier: 'Mythic', color: '#ec4899', cutscene: true },
-    { id: 'w7', name: 'Ragnarok Sovereign', icon: '🌋', basePower: 35000, rarityRate: '1/100,000', tier: 'Godly', color: '#ef4444', cutscene: true }
-];
+    const defaultState = {
+        version: 2,
+        gold: 0,
+        ore: 20,
+        flame: 0,
+        hammerClicks: 0,
+        totalWeaponsForged: 0,
+        totalSalvages: 0,
+        bestWeaponPower: 0,
+        lastSaveTimestamp: Date.now(),
 
-// ---------------- RUNES POOL (RNG) ----------------
-const RUNES = [
-    { id: 'r1', name: 'Fiery Spark', prefix: 'Blazing', boost: 1.5, weight: 60, color: '#ff7700', desc: '+50% Attack Power' },
-    { id: 'r2', name: 'Ether Flow', prefix: 'Flowing', boost: 2.2, weight: 25, color: '#00e5ff', desc: '+120% Attack Power & +1 Ore/s' },
-    { id: 'r3', name: 'Void Strike', prefix: 'Abyssal', boost: 4.5, weight: 10, color: '#a855f7', desc: '+350% Attack Power' },
-    { id: 'r4', name: 'Primordial Genesis', prefix: 'God-Slayer', boost: 12.0, weight: 4.5, color: '#ffcc00', desc: '+1100% Attack Power & Gold Doubler', cutscene: true },
-    { id: 'r5', name: 'Singularity Core', prefix: 'Infinite', boost: 50.0, weight: 0.5, color: '#ff0055', desc: '+4900% Attack Power', cutscene: true }
-];
+        // 제련 중인 상태
+        isCraftingComplete: false,
+        forgeProgress: 0,
+        currentWeaponId: 'w_rusty_dagger',
+        currentEnhancement: 0,
+        currentQuality: 100,
+        activeRuneId: null,
 
-// ---------------- UPGRADES DATA ----------------
-const UPGRADES_DEF = [
-    { id: 'hammerPower', title: 'Heavy Hammer', desc: '+1 Hammering Progress per strike', baseCost: 15, costMul: 1.35, val: 1 },
-    { id: 'anvilQuality', title: 'Mithril Anvil', desc: '+15% Weapon Gold Salvage Value', baseCost: 50, costMul: 1.4, val: 0.15 },
-    { id: 'bellowsSpeed', title: 'Infernal Bellows', desc: 'Auto-hammers every 0.8s', baseCost: 120, costMul: 1.5, val: 1 },
-    { id: 'oreMagnet', title: 'Ether Siphon', desc: '+5% chance to extract Ether Ore on hammer', baseCost: 200, costMul: 1.6, val: 0.05 }
-];
+        // 인벤토리 & 장착
+        inventory: [], // [{ uid, id, enhancement, quality, runeId, power, locked, forgedAt }]
+        equippedWeaponUid: null,
+        maxInventorySlots: 30,
 
-// ---------------- DUNGEONS DATA ----------------
-const DUNGEONS_DEF = [
-    { id: 'goblinCave', name: 'Goblin Cavern', reqPower: 20, goldPerSec: 5, orePerSec: 0.2, cost: 50 },
-    { id: 'dragonLair', name: 'Dragon Peak', reqPower: 500, goldPerSec: 65, orePerSec: 1.5, cost: 800 },
-    { id: 'abyssalRift', name: 'Abyssal Rift', reqPower: 5000, goldPerSec: 850, orePerSec: 8.0, cost: 10000 }
-];
+        // 도감 해금 기록 (id -> { discovered: true, timesForged, maxEnhance, firstDiscoveredAt })
+        codex: {},
 
-// ---------------- AUDIO SYNTH (Procedural Sound FX) ----------------
-const SoundFX = {
-    ctx: null,
-    init() {
-        if (!this.ctx) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) this.ctx = new AudioCtx();
+        // 대장간 시설 업그레이드 (id -> level)
+        upgrades: {
+            hammerPower: 0,
+            anvilQuality: 0,
+            bellowsSpeed: 0,
+            oreMagnet: 0,
+            qualityMastery: 0,
+            enhancementLuck: 0,
+            criticalStrike: 0,
+            ancientWhisper: 0
+        },
+
+        // 던전 원정대 해금 (id -> level/unlocked)
+        dungeons: {
+            d_goblin_cave: 0,
+            d_skeleton_crypt: 0,
+            d_golem_sanctuary: 0,
+            d_dragon_peak: 0,
+            d_abyssal_rift: 0,
+            d_celestial_citadel: 0
+        },
+
+        // 시스템 설정
+        settings: {
+            autoHammer: false,
+            sound: true,
+            fastCutscene: false
         }
-    },
-    playAnvilHit() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        
-        // Metallic Clang (High Sin + Triangle)
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
-        
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.16);
-    },
-    playSuccessChord() {
-        if (!this.ctx) return;
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((freq, i) => {
-            const now = this.ctx.currentTime + (i * 0.08);
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-            gain.gain.setValueAtTime(0.15, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(now);
-            osc.stop(now + 0.45);
-        });
-    }
-};
-
-// ---------------- CANVAS SPARKS & PARTICLES ----------------
-const canvas = document.getElementById('particle-canvas');
-const ctx = canvas.getContext('2d');
-let particles = [];
-
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-class SparkParticle {
-    constructor(x, y, color = '#ff8800') {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 12;
-        this.vy = (Math.random() - 0.5) * 12 - 2;
-        this.alpha = 1;
-        this.color = color;
-        this.size = Math.random() * 4 + 2;
-        this.decay = Math.random() * 0.03 + 0.015;
-    }
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vy += 0.25; // gravity
-        this.alpha -= this.decay;
-    }
-    draw(context) {
-        context.save();
-        context.globalAlpha = Math.max(0, this.alpha);
-        context.fillStyle = this.color;
-        context.shadowColor = this.color;
-        context.shadowBlur = 10;
-        context.beginPath();
-        context.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        context.fill();
-        context.restore();
-    }
-}
-
-function spawnSparks(x, y, count = 20, color = '#ff8800') {
-    for (let i = 0; i < count; i++) {
-        particles.push(new SparkParticle(x, y, color));
-    }
-}
-
-function updateParticles() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.update();
-        p.draw(ctx);
-        if (p.alpha <= 0) particles.splice(i, 1);
-    }
-    requestAnimationFrame(updateParticles);
-}
-updateParticles();
-
-// ---------------- CORE GAMEPLAY LOGIC ----------------
-function getGlobalFlameMultiplier() {
-    return 1 + (gameState.flame * 0.1);
-}
-
-function getHammerProgressPower() {
-    return 10 + (gameState.upgrades.hammerPower * 5);
-}
-
-function getCurrentWeapon() {
-    return WEAPONS[gameState.currentWeaponIndex];
-}
-
-function calculateWeaponPower() {
-    const baseW = getCurrentWeapon();
-    const runeBoost = gameState.activeRune ? gameState.activeRune.boost : 1.0;
-    const flameMult = getGlobalFlameMultiplier();
-    return Math.floor(baseW.basePower * runeBoost * flameMult * (1 + gameState.currentEnhancement * 0.25));
-}
-
-function calculateSalvageGold() {
-    const power = calculateWeaponPower();
-    const qualBonus = 1 + (gameState.upgrades.anvilQuality * 0.15);
-    return Math.floor(power * 2.5 * qualBonus);
-}
-
-function strikeAnvil(e) {
-    SoundFX.init();
-    SoundFX.playAnvilHit();
-
-    gameState.hammerClicks++;
-    const progressGain = getHammerProgressPower();
-    gameState.forgeProgress += progressGain;
-
-    // Sparks visual
-    const rect = document.getElementById('anvil-btn').getBoundingClientRect();
-    const clickX = e ? e.clientX : rect.left + rect.width / 2;
-    const clickY = e ? e.clientY : rect.top + rect.height / 2;
-    spawnSparks(clickX, clickY, 18, '#ff9900');
-
-    // Float hit number
-    createHitNumber(clickX, clickY, `+${progressGain}%`);
-
-    // Ore Magnet check
-    const oreChance = gameState.upgrades.oreMagnet * 0.05;
-    if (Math.random() < oreChance) {
-        gameState.ore += 1;
-        createHitNumber(clickX, clickY - 30, '+1 💎', '#00e5ff');
-    }
-
-    // Complete weapon crafting
-    if (gameState.forgeProgress >= 100) {
-        completeWeaponCrafting();
-    }
-
-    updateUI();
-}
-
-function completeWeaponCrafting() {
-    gameState.forgeProgress = 0;
-    gameState.totalWeaponsForged++;
-    SoundFX.playSuccessChord();
-
-    // Roll for next weapon tier chance (RNG)
-    const roll = Math.random();
-    let newIndex = 0;
-    if (roll < 0.0001 && WEAPONS.length > 6) newIndex = 6; // Godly
-    else if (roll < 0.001 && WEAPONS.length > 5) newIndex = 5; // Mythic
-    else if (roll < 0.01 && WEAPONS.length > 4) newIndex = 4; // Legendary
-    else if (roll < 0.06 && WEAPONS.length > 3) newIndex = 3; // Epic
-    else if (roll < 0.25 && WEAPONS.length > 2) newIndex = 2; // Rare
-    else if (roll < 0.60 && WEAPONS.length > 1) newIndex = 1; // Uncommon
-    else newIndex = 0; // Common
-
-    gameState.currentWeaponIndex = newIndex;
-    gameState.currentEnhancement = Math.floor(Math.random() * 5); // +0 to +4 random quality
-
-    const w = getCurrentWeapon();
-    if (newIndex > gameState.bestWeaponTier) {
-        gameState.bestWeaponTier = newIndex;
-    }
-
-    // Trigger Cutscene for high tiers
-    if (w.cutscene || newIndex >= 4) {
-        triggerWeaponCutscene(w);
-    }
-}
-
-function triggerWeaponCutscene(weapon) {
-    const overlay = document.getElementById('cutscene-overlay');
-    const titleEl = document.getElementById('cs-weapon-name');
-    const rarityEl = document.getElementById('cs-weapon-rarity');
-    const symEl = document.getElementById('cs-weapon-symbol');
-    const glowEl = document.getElementById('cs-glow');
-
-    titleEl.innerText = `${weapon.name} +${gameState.currentEnhancement}`;
-    titleEl.style.color = weapon.color;
-    rarityEl.innerText = `Rarity Rate: ${weapon.rarityRate}`;
-    symEl.innerText = weapon.icon;
-    glowEl.style.background = weapon.color;
-
-    overlay.classList.remove('hidden');
-    spawnSparks(window.innerWidth / 2, window.innerHeight / 2, 60, weapon.color);
-
-    overlay.onclick = () => {
-        overlay.classList.add('hidden');
     };
-    setTimeout(() => {
-        overlay.classList.add('hidden');
-    }, 4500);
-}
 
-function salvageWeapon() {
-    const goldEarned = calculateSalvageGold();
-    gameState.gold += goldEarned;
+    let state = JSON.parse(JSON.stringify(defaultState));
+    let particlesInstance = null;
 
-    // Reset current weapon back to standard
-    gameState.currentWeaponIndex = 0;
-    gameState.currentEnhancement = 0;
-    gameState.activeRune = null;
-    gameState.forgeProgress = 0;
+    // ------------------------------------------------------------------------
+    // 2. HELPER FUNCTIONS & FORMATTERS
+    // ------------------------------------------------------------------------
 
-    SoundFX.playSuccessChord();
-    updateUI();
-}
-
-function rollRune() {
-    const cost = 50;
-    if (gameState.ore < cost) return;
-    gameState.ore -= cost;
-
-    // Weighted random selection
-    const totalWeight = RUNES.reduce((sum, r) => sum + r.weight, 0);
-    let rand = Math.random() * totalWeight;
-    let selected = RUNES[0];
-
-    for (const rune of RUNES) {
-        if (rand < rune.weight) {
-            selected = rune;
-            break;
-        }
-        rand -= rune.weight;
+    function generateUID() {
+        return 'wpn_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
     }
 
-    gameState.activeRune = selected;
-    SoundFX.playSuccessChord();
-    spawnSparks(window.innerWidth / 2, window.innerHeight / 2, 35, selected.color);
+    function formatNumber(num) {
+        if (num === null || num === undefined || isNaN(num)) return '0';
+        if (!isFinite(num)) return 'Infinity';
+        if (num < 0) return '-' + formatNumber(-num);
+        if (num < 1000) return Math.floor(num).toLocaleString();
 
-    if (selected.cutscene) {
-        triggerRuneCutscene(selected);
+        const units = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+        const unitIndex = Math.min(Math.floor(Math.log10(num) / 3), units.length - 1);
+        const scaled = num / Math.pow(10, unitIndex * 3);
+        return scaled.toFixed(2) + ' ' + units[unitIndex];
     }
 
-    updateUI();
-}
-
-function triggerRuneCutscene(rune) {
-    const overlay = document.getElementById('cutscene-overlay');
-    const titleEl = document.getElementById('cs-weapon-name');
-    const rarityEl = document.getElementById('cs-weapon-rarity');
-    const symEl = document.getElementById('cs-weapon-symbol');
-    const glowEl = document.getElementById('cs-glow');
-
-    titleEl.innerText = `${rune.prefix} Inscription`;
-    titleEl.style.color = rune.color;
-    rarityEl.innerText = `${rune.desc}`;
-    symEl.innerText = '🔮';
-    glowEl.style.background = rune.color;
-
-    overlay.classList.remove('hidden');
-    overlay.onclick = () => overlay.classList.add('hidden');
-    setTimeout(() => overlay.classList.add('hidden'), 4000);
-}
-
-function createHitNumber(x, y, text, color = '#ffb703') {
-    const div = document.createElement('div');
-    div.className = 'floating-hit';
-    div.innerText = text;
-    div.style.left = `${x}px`;
-    div.style.top = `${y}px`;
-    div.style.color = color;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 600);
-}
-
-// ---------------- UI & RENDERING ----------------
-function formatNumber(num) {
-    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
-    return Math.floor(num).toLocaleString();
-}
-
-function updateUI() {
-    // Header Currencies
-    document.getElementById('disp-gold').innerText = formatNumber(gameState.gold);
-    document.getElementById('disp-ore').innerText = formatNumber(gameState.ore);
-    document.getElementById('disp-flame').innerText = formatNumber(gameState.flame);
-
-    // Weapon Card
-    const w = getCurrentWeapon();
-    const pwr = calculateWeaponPower();
-    const runePrefix = gameState.activeRune ? `${gameState.activeRune.prefix} ` : '';
-    const enhanceStr = gameState.currentEnhancement > 0 ? ` +${gameState.currentEnhancement}` : '';
-
-    const nameEl = document.getElementById('weapon-name');
-    nameEl.innerText = `${runePrefix}${w.name}${enhanceStr}`;
-    nameEl.style.color = gameState.activeRune ? gameState.activeRune.color : w.color;
-
-    document.getElementById('weapon-icon').innerText = w.icon;
-    document.getElementById('weapon-tier-badge').innerText = w.tier;
-    document.getElementById('weapon-tier-badge').style.borderColor = w.color;
-    document.getElementById('weapon-power').innerText = formatNumber(pwr);
-    document.getElementById('weapon-rarity-rate').innerText = w.rarityRate;
-    document.getElementById('weapon-multiplier').innerText = `x${getGlobalFlameMultiplier().toFixed(2)} Mult`;
-
-    // Progress
-    const pct = Math.min(100, Math.floor(gameState.forgeProgress));
-    document.getElementById('forge-pct').innerText = `${pct}%`;
-    document.getElementById('forge-bar').style.width = `${pct}%`;
-
-    // Salvage Button
-    document.getElementById('salvage-gold-preview').innerText = formatNumber(calculateSalvageGold());
-
-    // Rune Card
-    if (gameState.activeRune) {
-        document.getElementById('active-rune-name').innerText = gameState.activeRune.name;
-        document.getElementById('active-rune-name').style.color = gameState.activeRune.color;
-        document.getElementById('active-rune-desc').innerText = gameState.activeRune.desc;
-    } else {
-        document.getElementById('active-rune-name').innerText = 'No Rune Attached';
-        document.getElementById('active-rune-name').style.color = '#fff';
-        document.getElementById('active-rune-desc').innerText = '에테르 광석을 소모해 고대 룬을 추출하세요.';
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 400);
+        }, 3000);
     }
-    document.getElementById('roll-rune-btn').disabled = gameState.ore < 50;
 
-    // Upgrades List
-    renderUpgrades();
+    // ------------------------------------------------------------------------
+    // 3. CORE CALCULATIONS & MULTIPLIERS
+    // ------------------------------------------------------------------------
 
-    // Expeditions
-    renderDungeons();
+    function getFlameMultiplier() {
+        // 태초의 불꽃 1개당 +10% 글로벌 제작 배수
+        return 1 + (state.flame * 0.10);
+    }
 
-    // Ascension / Rebirth
-    const pendingFlames = Math.floor(Math.sqrt(gameState.gold / 5000));
-    document.getElementById('pending-flames').innerText = `+${pendingFlames} 🔥`;
-    document.getElementById('current-flame-mult').innerText = `x${getGlobalFlameMultiplier().toFixed(2)}`;
-    document.getElementById('ascend-btn').disabled = pendingFlames <= 0;
-}
+    function getCodexBonusMultiplier() {
+        // 도감에 등록된 고유 무기 1종당 +2% 영구 생산 보너스
+        const totalDiscovered = Object.keys(state.codex).length;
+        return 1 + (totalDiscovered * 0.02);
+    }
 
-function renderUpgrades() {
-    const container = document.getElementById('upgrades-list');
-    container.innerHTML = '';
+    function getHammerProgressPerHit() {
+        const base = 8;
+        const upgLvl = state.upgrades.hammerPower || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'hammerPower');
+        const bonus = upgDef ? upgDef.effect(upgLvl) : 0;
+        return Math.floor(base + bonus);
+    }
 
-    UPGRADES_DEF.forEach(def => {
-        const lvl = gameState.upgrades[def.id] || 0;
-        const cost = Math.floor(def.baseCost * Math.pow(def.costMul, lvl));
-        const canBuy = gameState.gold >= cost;
+    function getAnvilQualityBonus() {
+        const upgLvl = state.upgrades.anvilQuality || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'anvilQuality');
+        return 1 + (upgDef ? upgDef.effect(upgLvl) : 0);
+    }
 
-        const card = document.createElement('div');
-        card.className = 'upgrade-card';
-        card.innerHTML = `
-            <div class="upg-info">
-                <span class="upg-title">${def.title}</span>
-                <span class="upg-desc">${def.desc}</span>
-                <span class="upg-level">Level ${lvl}</span>
-            </div>
-            <button class="buy-upg-btn" ${canBuy ? '' : 'disabled'} onclick="buyUpgrade('${def.id}', ${cost})">
-                ${formatNumber(cost)} 🪙
-            </button>
-        `;
-        container.appendChild(card);
-    });
-}
+    function getAutoBellowsInterval() {
+        const upgLvl = state.upgrades.bellowsSpeed || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'bellowsSpeed');
+        return upgDef ? upgDef.effect(upgLvl) : 0.85;
+    }
 
-function buyUpgrade(id, cost) {
-    if (gameState.gold < cost) return;
-    gameState.gold -= cost;
-    gameState.upgrades[id] = (gameState.upgrades[id] || 0) + 1;
-    SoundFX.playSuccessChord();
-    updateUI();
-}
+    function getOreDropChance() {
+        const upgLvl = state.upgrades.oreMagnet || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'oreMagnet');
+        return upgDef ? upgDef.effect(upgLvl) : 0;
+    }
 
-function renderDungeons() {
-    const container = document.getElementById('dungeon-list');
-    container.innerHTML = '';
+    function getCriticalChance() {
+        const upgLvl = state.upgrades.criticalStrike || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'criticalStrike');
+        return 0.10 + (upgDef ? upgDef.effect(upgLvl) : 0);
+    }
 
-    const currentPwr = calculateWeaponPower();
-    let totalGoldPerSec = 0;
-    let totalOrePerSec = 0;
+    function getAncientWhisperMult() {
+        const upgLvl = state.upgrades.ancientWhisper || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'ancientWhisper');
+        return upgDef ? upgDef.effect(upgLvl) : 1.0;
+    }
 
-    DUNGEONS_DEF.forEach(d => {
-        const unlocked = gameState.dungeons[d.id] > 0;
-        const canUnlock = gameState.gold >= d.cost && currentPwr >= d.reqPower;
+    function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
+        if (!weaponDef) return 10;
+        const flameMult = getFlameMultiplier();
+        const codexMult = getCodexBonusMultiplier();
+        const runeBoost = runeDef ? runeDef.boost : 1.0;
+        const enhanceMult = 1 + (enhancement * 0.35); // 강화 1당 +35% 공격력 증가
+        const qualityMult = quality / 100;
 
-        if (unlocked) {
-            totalGoldPerSec += d.goldPerSec;
-            totalOrePerSec += d.orePerSec;
+        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * flameMult * codexMult);
+    }
+
+    function computeWeaponSalvagePrice(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
+        const pwr = computeWeaponItemPower(weaponDef, enhancement, quality, runeDef);
+        const anvilMult = getAnvilQualityBonus();
+        return Math.floor(pwr * 2.5 * anvilMult);
+    }
+
+    function getEquippedWeapon() {
+        if (!state.equippedWeaponUid) return null;
+        return state.inventory.find(item => item.uid === state.equippedWeaponUid) || null;
+    }
+
+    function getMercenaryTotalDPS() {
+        const equipped = getEquippedWeapon();
+        let baseEquipDPS = 0;
+        if (equipped) {
+            baseEquipDPS = equipped.power;
         }
 
-        const card = document.createElement('div');
-        card.className = `upgrade-card ${unlocked ? 'unlocked' : ''}`;
-        card.innerHTML = `
-            <div class="upg-info">
-                <span class="upg-title">${d.name} ${unlocked ? '⚔️ [Active]' : '🔒'}</span>
-                <span class="upg-desc">Req: ${d.reqPower} Power | Gives +${d.goldPerSec} Gold/s, +${d.orePerSec} Ore/s</span>
-            </div>
-            ${unlocked ? '<span style="color:#00ffaa; font-size:0.85rem; font-weight:bold;">EXPLORING</span>' : `
-                <button class="buy-upg-btn" ${canUnlock ? '' : 'disabled'} onclick="unlockDungeon('${d.id}', ${d.cost})">
-                    ${formatNumber(d.cost)} 🪙
-                </button>
-            `}
-        `;
-        container.appendChild(card);
-    });
+        // 인벤토리 내의 다른 무기들도 5%씩 보조 전투력으로 기여 (수집 인센티브)
+        let totalInvAux = 0;
+        state.inventory.forEach(item => {
+            if (item.uid !== state.equippedWeaponUid) {
+                totalInvAux += Math.floor(item.power * 0.05);
+            }
+        });
 
-    document.getElementById('exp-total-dps').innerText = formatNumber(currentPwr);
-    document.getElementById('exp-passive-income').innerText = `+${formatNumber(totalGoldPerSec)} Gold/s`;
-    document.getElementById('exp-passive-ore').innerText = `+${totalOrePerSec.toFixed(1)} Ore/s`;
-}
+        return baseEquipDPS + totalInvAux;
+    }
 
-function unlockDungeon(id, cost) {
-    if (gameState.gold < cost) return;
-    gameState.gold -= cost;
-    gameState.dungeons[id] = 1;
-    SoundFX.playSuccessChord();
-    updateUI();
-}
+    // ------------------------------------------------------------------------
+    // 4. FORGING LOGIC & ANVIL STRIKING
+    // ------------------------------------------------------------------------
 
-function triggerAscension() {
-    const pendingFlames = Math.floor(Math.sqrt(gameState.gold / 5000));
-    if (pendingFlames <= 0) return;
+    function strikeAnvil(e = null) {
+        window.SoundFX.init();
 
-    if (confirm(`모든 골드와 무기를 태워 ${pendingFlames}개의 태초의 불꽃을 얻으시겠습니까?`)) {
-        gameState.flame += pendingFlames;
-        gameState.gold = 0;
-        gameState.ore = 20;
-        gameState.forgeProgress = 0;
-        gameState.currentWeaponIndex = 0;
-        gameState.currentEnhancement = 0;
-        gameState.activeRune = null;
-        gameState.upgrades = { hammerPower: 0, anvilQuality: 0, bellowsSpeed: 0, oreMagnet: 0 };
+        // 크리티컬 판정
+        const critChance = getCriticalChance();
+        const isCritical = Math.random() < critChance;
+        window.SoundFX.playAnvilHit(isCritical);
 
-        spawnSparks(window.innerWidth / 2, window.innerHeight / 2, 100, '#ff3300');
-        SoundFX.playSuccessChord();
+        state.hammerClicks++;
+
+        // 진행도 가산
+        let progressGain = getHammerProgressPerHit();
+        if (isCritical) {
+            progressGain *= 3;
+        }
+
+        state.forgeProgress = Math.min(100, state.forgeProgress + progressGain);
+
+        // 시각적 피드백 및 파티클
+        const btnRect = document.getElementById('anvil-btn').getBoundingClientRect();
+        const clickX = e ? e.clientX : btnRect.left + btnRect.width / 2;
+        const clickY = e ? e.clientY : btnRect.top + btnRect.height / 2;
+
+        if (particlesInstance) {
+            if (isCritical) {
+                particlesInstance.spawnCriticalSparks(clickX, clickY, '#ffdd00');
+                particlesInstance.spawnFloatingText(clickX, clickY, `CRITICAL +${progressGain}%!`, '#ffea00', '1.6rem');
+            } else {
+                particlesInstance.spawnSparks(clickX, clickY, 18, '#ff8800');
+                particlesInstance.spawnFloatingText(clickX, clickY, `+${progressGain}%`, '#ffaa33');
+            }
+        }
+
+        // 에테르 광석 드랍 체크
+        const oreChance = getOreDropChance();
+        if (Math.random() < oreChance) {
+            state.ore += 1;
+            if (particlesInstance) {
+                particlesInstance.spawnFloatingText(clickX, clickY - 35, '+1 💎 에테르 광석', '#00e5ff', '1.1rem');
+            }
+        }
+
+        // 100% 도달 시 제련 완성 판정
+        if (state.forgeProgress >= 100 && !state.isCraftingComplete) {
+            onWeaponCraftComplete();
+        }
+
         updateUI();
     }
-}
 
-// ---------------- GAME TICK LOOP ----------------
-let lastTick = performance.now();
-let autoHammerTimer = 0;
+    function onWeaponCraftComplete() {
+        state.isCraftingComplete = true;
+        state.totalWeaponsForged++;
+        window.SoundFX.playCraftComplete();
 
-function gameLoop(time) {
-    const dt = (time - lastTick) / 1000;
-    lastTick = time;
+        // 1. 무기 추첨 (RNG Roll with Ancient Whisper Bonus)
+        const whisper = getAncientWhisperMult();
+        const database = window.WEAPONS_DATABASE;
 
-    // Passive Dungeon Incomes
-    let passiveGold = 0;
-    let passiveOre = 0;
-    DUNGEONS_DEF.forEach(d => {
-        if (gameState.dungeons[d.id] > 0) {
-            passiveGold += d.goldPerSec;
-            passiveOre += d.orePerSec;
+        // 가중치 계산
+        let weightedPool = database.map(w => {
+            let wWeight = w.weight;
+            if (w.tier !== 'Common' && w.tier !== 'Uncommon') {
+                wWeight *= whisper;
+            }
+            return { item: w, weight: wWeight };
+        });
+
+        const totalWeight = weightedPool.reduce((sum, item) => sum + item.weight, 0);
+        let rollVal = Math.random() * totalWeight;
+        let selectedWeapon = database[0];
+
+        for (const entry of weightedPool) {
+            if (rollVal < entry.weight) {
+                selectedWeapon = entry.item;
+                break;
+            }
+            rollVal -= entry.weight;
         }
-    });
 
-    if (passiveGold > 0) gameState.gold += passiveGold * dt;
-    if (passiveOre > 0) gameState.ore += passiveOre * dt;
+        state.currentWeaponId = selectedWeapon.id;
 
-    // Auto Hammer (Bellows upgrade or toggle)
-    if (gameState.autoHammer || gameState.upgrades.bellowsSpeed > 0) {
-        autoHammerTimer += dt;
-        const interval = Math.max(0.15, 0.8 - (gameState.upgrades.bellowsSpeed * 0.1));
-        if (autoHammerTimer >= interval) {
-            autoHammerTimer = 0;
-            strikeAnvil(null);
+        // 2. 품질(Quality) 판정 (80% ~ 120% + Quality Mastery Upgrade)
+        const qualBonus = (state.upgrades.qualityMastery || 0) * 5;
+        const rawQuality = Math.floor(Math.random() * 41) + 80 + qualBonus;
+        state.currentQuality = rawQuality;
+
+        // 3. 추가 강화치(+Enhance) 판정 (축복받은 불꽃 제련 업그레이드 반영)
+        const enhBonus = (state.upgrades.enhancementLuck || 0) * 0.1;
+        let bonusEnhance = 0;
+        const enhRoll = Math.random() + enhBonus;
+        if (enhRoll > 0.98) bonusEnhance = Math.floor(Math.random() * 3) + 5; // +5 ~ +7
+        else if (enhRoll > 0.85) bonusEnhance = Math.floor(Math.random() * 3) + 2; // +2 ~ +4
+        else if (enhRoll > 0.50) bonusEnhance = 1; // +1
+        state.currentEnhancement = bonusEnhance;
+
+        // 4. 도감(Codex) 자동 등록 및 업데이트
+        registerToCodex(selectedWeapon.id, bonusEnhance);
+
+        // 5. 최고 전투력 갱신
+        const currentPwr = computeWeaponItemPower(
+            selectedWeapon,
+            state.currentEnhancement,
+            state.currentQuality,
+            getRuneDef(state.activeRuneId)
+        );
+        if (currentPwr > state.bestWeaponPower) {
+            state.bestWeaponPower = currentPwr;
+        }
+
+        // 6. 고티어 전설 컷신 연출
+        if (selectedWeapon.cutscene || selectedWeapon.tier === 'Legendary' || selectedWeapon.tier === 'Mythic' || selectedWeapon.tier === 'Godly') {
+            triggerCinematicCutscene(selectedWeapon, state.currentEnhancement);
+        }
+
+        showToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
+        autoSave();
+    }
+
+    function getRuneDef(runeId) {
+        if (!runeId) return null;
+        return window.RUNES_DATABASE.find(r => r.id === runeId) || null;
+    }
+
+    function registerToCodex(weaponId, enhancement) {
+        if (!state.codex[weaponId]) {
+            state.codex[weaponId] = {
+                discovered: true,
+                timesForged: 1,
+                maxEnhance: enhancement,
+                firstDiscoveredAt: Date.now()
+            };
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === weaponId);
+            if (wDef) {
+                showToast(`📖 도감 등록! [${wDef.name}]`, 'info');
+            }
+        } else {
+            state.codex[weaponId].timesForged += 1;
+            state.codex[weaponId].maxEnhance = Math.max(state.codex[weaponId].maxEnhance, enhancement);
         }
     }
 
-    updateUI();
-    requestAnimationFrame(gameLoop);
-}
+    // ------------------------------------------------------------------------
+    // 5. INVENTORY & WEAPON MANAGEMENT (FIXES MONEY MULTIPLY BUG)
+    // ------------------------------------------------------------------------
 
-// ---------------- ATTACH EVENT LISTENERS ----------------
-window.addEventListener('DOMContentLoaded', () => {
-    // Anvil Strike
-    document.getElementById('anvil-btn').addEventListener('click', (e) => strikeAnvil(e));
+    function claimCurrentWeaponToInventory() {
+        if (!state.isCraftingComplete) {
+            showToast('⚠️ 제련이 완성된 무기만 보관할 수 있습니다!', 'warning');
+            return;
+        }
 
-    // Salvage
-    document.getElementById('equip-or-sell-btn').addEventListener('click', salvageWeapon);
+        if (state.inventory.length >= state.maxInventorySlots) {
+            showToast(`⚠️ 인벤토리가 가득 찼습니다! (${state.maxInventorySlots}/${state.maxInventorySlots}) 무기를 분해하거나 정리하세요.`, 'warning');
+            return;
+        }
 
-    // Auto Hammer Toggle
-    document.getElementById('auto-hammer-btn').addEventListener('click', () => {
-        gameState.autoHammer = !gameState.autoHammer;
-        document.getElementById('auto-hammer-status').innerText = gameState.autoHammer ? 'ON' : 'OFF';
-        document.getElementById('auto-hammer-status').style.color = gameState.autoHammer ? '#00ffaa' : '#ff5555';
-    });
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+        const rDef = getRuneDef(state.activeRuneId);
+        const pwr = computeWeaponItemPower(wDef, state.currentEnhancement, state.currentQuality, rDef);
 
-    // Runes
-    document.getElementById('roll-rune-btn').addEventListener('click', rollRune);
+        const newWeaponItem = {
+            uid: generateUID(),
+            id: state.currentWeaponId,
+            enhancement: state.currentEnhancement,
+            quality: state.currentQuality,
+            runeId: state.activeRuneId,
+            power: pwr,
+            locked: false,
+            forgedAt: Date.now()
+        };
 
-    // Ascension
-    document.getElementById('ascend-btn').addEventListener('click', triggerAscension);
+        state.inventory.push(newWeaponItem);
 
-    // Tabs Nav
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            const targetId = btn.getAttribute('data-tab');
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) targetEl.classList.add('active');
+        // 첫 무기인 경우 자동 대표 무기 장착
+        if (!state.equippedWeaponUid) {
+            state.equippedWeaponUid = newWeaponItem.uid;
+        }
+
+        showToast(`🎒 [${wDef.name} +${state.currentEnhancement}] 보관함에 저장되었습니다!`, 'success');
+        window.SoundFX.playBuySound();
+
+        // 작업대 상태 리셋 (새 무기 제작 준비)
+        resetWorkbench();
+        updateUI();
+        autoSave();
+    }
+
+    function salvageCurrentWeapon() {
+        // [버그 수정] 제련 완성된 상태에서만 분해 가능
+        if (!state.isCraftingComplete) {
+            showToast('⚠️ 제련이 진행 중인 무기는 분해할 수 없습니다! (완성 후 분해 가능)', 'warning');
+            return;
+        }
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+        const rDef = getRuneDef(state.activeRuneId);
+        const goldGain = computeWeaponSalvagePrice(wDef, state.currentEnhancement, state.currentQuality, rDef);
+
+        state.gold += goldGain;
+        state.totalSalvages++;
+        window.SoundFX.playCoinSound();
+
+        showToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(goldGain)} 골드 획득)`, 'success');
+
+        resetWorkbench();
+        updateUI();
+        autoSave();
+    }
+
+    function resetWorkbench() {
+        state.isCraftingComplete = false;
+        state.forgeProgress = 0;
+        state.currentWeaponId = 'w_rusty_dagger';
+        state.currentEnhancement = 0;
+        state.currentQuality = 100;
+        state.activeRuneId = null;
+    }
+
+    function equipWeapon(uid) {
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item) return;
+
+        state.equippedWeaponUid = uid;
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        showToast(`⚔️ [${wDef.name} +${item.enhancement}] 대표 무기로 장착했습니다!`, 'success');
+        window.SoundFX.playBuySound();
+        updateUI();
+        autoSave();
+    }
+
+    function salvageInventoryItem(uid) {
+        const index = state.inventory.findIndex(i => i.uid === uid);
+        if (index === -1) return;
+
+        const item = state.inventory[index];
+        if (item.locked) {
+            showToast('🔒 잠겨있는 무기는 분해할 수 없습니다. 잠금을 해제하세요.', 'warning');
+            return;
+        }
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+        const price = computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
+
+        state.gold += price;
+        state.totalSalvages++;
+        window.SoundFX.playCoinSound();
+
+        // 장착된 무기 해제 처리
+        if (state.equippedWeaponUid === uid) {
+            state.equippedWeaponUid = null;
+        }
+
+        state.inventory.splice(index, 1);
+        showToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(price)} 골드)`, 'info');
+        updateUI();
+        autoSave();
+    }
+
+    function toggleLockInventoryItem(uid) {
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item) return;
+        item.locked = !item.locked;
+        updateUI();
+        autoSave();
+    }
+
+    function salvageAllCommonItems() {
+        const commonItems = state.inventory.filter(i => {
+            const def = window.WEAPONS_DATABASE.find(w => w.id === i.id);
+            return def && (def.tier === 'Common' || def.tier === 'Uncommon') && !i.locked && i.uid !== state.equippedWeaponUid;
         });
-    });
 
-    // Known rune roster
-    const runeList = document.getElementById('rune-collection-list');
-    RUNES.forEach(r => {
-        const item = document.createElement('div');
-        item.className = 'upgrade-card';
-        item.style.borderColor = r.color;
-        item.innerHTML = `
-            <div class="upg-info">
-                <span class="upg-title" style="color:${r.color}">${r.name} (${r.prefix})</span>
-                <span class="upg-desc">${r.desc}</span>
-            </div>
-            <span style="font-size:0.8rem; font-weight:bold; color:#aaa;">${r.weight}% Rate</span>
+        if (commonItems.length === 0) {
+            showToast('분해할 수 있는 일반/고급 등급의 무기가 없습니다.', 'info');
+            return;
+        }
+
+        let totalGold = 0;
+        commonItems.forEach(item => {
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+            const rDef = getRuneDef(item.runeId);
+            totalGold += computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
+            const idx = state.inventory.findIndex(x => x.uid === item.uid);
+            if (idx !== -1) state.inventory.splice(idx, 1);
+        });
+
+        state.gold += totalGold;
+        window.SoundFX.playCoinSound();
+        showToast(`💰 일반/고급 무기 ${commonItems.length}개 일괄 분해 (+${formatNumber(totalGold)} 골드)`, 'success');
+        updateUI();
+        autoSave();
+    }
+
+    // ------------------------------------------------------------------------
+    // 6. RUNE INSCRIPTION SYSTEM
+    // ------------------------------------------------------------------------
+
+    function rollRune() {
+        const cost = 50;
+        if (state.ore < cost) {
+            showToast(`⚠️ 에테르 광석이 부족합니다! (${cost}개 필요)`, 'warning');
+            return;
+        }
+
+        state.ore -= cost;
+        window.SoundFX.init();
+
+        const runes = window.RUNES_DATABASE;
+        const totalWeight = runes.reduce((sum, r) => sum + r.weight, 0);
+        let rollVal = Math.random() * totalWeight;
+        let selectedRune = runes[0];
+
+        for (const r of runes) {
+            if (rollVal < r.weight) {
+                selectedRune = r;
+                break;
+            }
+            rollVal -= r.weight;
+        }
+
+        state.activeRuneId = selectedRune.id;
+        window.SoundFX.playBuySound();
+
+        if (particlesInstance) {
+            particlesInstance.spawnSparks(window.innerWidth / 2, window.innerHeight / 2, 35, selectedRune.color);
+        }
+
+        if (selectedRune.cutscene) {
+            triggerRuneCutscene(selectedRune);
+        }
+
+        showToast(`🔮 고대 룬 [${selectedRune.name}] 각인 완료!`, 'success');
+        updateUI();
+        autoSave();
+    }
+
+    // ------------------------------------------------------------------------
+    // 7. UPGRADES SYSTEM (FIXES CLICK NOT WORKING BUG)
+    // ------------------------------------------------------------------------
+
+    function buyUpgrade(upgradeId) {
+        const def = window.UPGRADES_DATABASE.find(u => u.id === upgradeId);
+        if (!def) return;
+
+        const currentLvl = state.upgrades[upgradeId] || 0;
+        if (currentLvl >= def.maxLevel) {
+            showToast('⚠️ 이미 최고 레벨에 도달했습니다!', 'warning');
+            return;
+        }
+
+        const cost = Math.floor(def.baseCost * Math.pow(def.costMul, currentLvl));
+        if (state.gold < cost) {
+            showToast(`⚠️ 골드가 부족합니다! (${formatNumber(cost)} 🪙 필요)`, 'warning');
+            return;
+        }
+
+        state.gold -= cost;
+        state.upgrades[upgradeId] = currentLvl + 1;
+        window.SoundFX.playBuySound();
+
+        showToast(`⚒️ [${def.title}] 레벨 ${state.upgrades[upgradeId]} 달성!`, 'success');
+        updateUI();
+        autoSave();
+    }
+
+    // ------------------------------------------------------------------------
+    // 8. DUNGEON EXPEDITION SYSTEM
+    // ------------------------------------------------------------------------
+
+    function unlockDungeon(dungeonId) {
+        const dDef = window.DUNGEONS_DATABASE.find(d => d.id === dungeonId);
+        if (!dDef) return;
+
+        if (state.dungeons[dungeonId] > 0) return;
+
+        const currentDPS = getMercenaryTotalDPS();
+        if (currentDPS < dDef.reqPower) {
+            showToast(`⚠️ 용병단 전투력이 부족합니다! (${formatNumber(dDef.reqPower)} 필요)`, 'warning');
+            return;
+        }
+
+        if (state.gold < dDef.cost) {
+            showToast(`⚠️ 해금 골드가 부족합니다! (${formatNumber(dDef.cost)} 🪙 필요)`, 'warning');
+            return;
+        }
+
+        state.gold -= dDef.cost;
+        state.dungeons[dungeonId] = 1;
+        window.SoundFX.playBuySound();
+
+        showToast(`⚔️ [${dDef.name}] 원정대 탐험 시작!`, 'success');
+        updateUI();
+        autoSave();
+    }
+
+    // ------------------------------------------------------------------------
+    // 9. ASCENSION (REBIRTH / PRESTIGE)
+    // ------------------------------------------------------------------------
+
+    function getPendingFlames() {
+        if (state.gold < 5000) return 0;
+        return Math.floor(Math.sqrt(state.gold / 5000));
+    }
+
+    function triggerAscension() {
+        const pending = getPendingFlames();
+        if (pending <= 0) {
+            showToast('⚠️ 아직 승화에 필요한 골드가 부족합니다! (최소 5,000 골드 필요)', 'warning');
+            return;
+        }
+
+        const confirmMsg = `🌋 [태초의 불꽃 승화]\n모든 골드, 대장간 시설, 제련 진행도를 불태워 ${pending}개의 태초의 불꽃을 얻으시겠습니까?\n\n(참고: 보관함의 장비 및 도감 해금 기록은 영구 보존됩니다!)`;
+        if (!confirm(confirmMsg)) return;
+
+        state.flame += pending;
+        state.gold = 0;
+        state.ore = 20;
+
+        // 시설 및 제련 리셋
+        resetWorkbench();
+        Object.keys(state.upgrades).forEach(key => {
+            state.upgrades[key] = 0;
+        });
+
+        // 원정대 상태 리셋
+        Object.keys(state.dungeons).forEach(key => {
+            state.dungeons[key] = 0;
+        });
+
+        if (particlesInstance) {
+            particlesInstance.spawnCriticalSparks(window.innerWidth / 2, window.innerHeight / 2, '#ff3300');
+        }
+        window.SoundFX.playLegendaryFanfare();
+
+        showToast(`🔥 승화 완료! 태초의 불꽃 +${pending}개 획득! (현재 글로벌 배수: x${getFlameMultiplier().toFixed(2)})`, 'success');
+        updateUI();
+        autoSave();
+    }
+
+    // ------------------------------------------------------------------------
+    // 10. CINEMATIC CUTSCENE (SOL'S RNG STYLE)
+    // ------------------------------------------------------------------------
+
+    function triggerCinematicCutscene(weapon, enhance = 0) {
+        const overlay = document.getElementById('cutscene-overlay');
+        const titleEl = document.getElementById('cs-weapon-name');
+        const rarityEl = document.getElementById('cs-weapon-rarity');
+        const symEl = document.getElementById('cs-weapon-symbol');
+        const glowEl = document.getElementById('cs-glow');
+        const quoteEl = document.getElementById('cs-quote');
+
+        if (!overlay || !titleEl) return;
+
+        titleEl.innerText = `${weapon.name} ${enhance > 0 ? `+${enhance}` : ''}`;
+        titleEl.style.color = weapon.color;
+        rarityEl.innerText = `확률 / Rarity: ${weapon.rarityRate}`;
+        symEl.innerText = weapon.icon;
+        glowEl.style.background = weapon.color;
+        quoteEl.innerText = `"${weapon.lore}"`;
+
+        window.SoundFX.playLegendaryFanfare();
+        overlay.classList.remove('hidden');
+
+        if (particlesInstance) {
+            particlesInstance.spawnCriticalSparks(window.innerWidth / 2, window.innerHeight / 2, weapon.color);
+        }
+
+        const closeCutscene = () => {
+            overlay.classList.add('hidden');
+        };
+
+        const skipBtn = document.getElementById('cs-skip-btn');
+        if (skipBtn) skipBtn.onclick = closeCutscene;
+        overlay.onclick = closeCutscene;
+
+        setTimeout(closeCutscene, 5000);
+    }
+
+    function triggerRuneCutscene(rune) {
+        const overlay = document.getElementById('cutscene-overlay');
+        const titleEl = document.getElementById('cs-weapon-name');
+        const rarityEl = document.getElementById('cs-weapon-rarity');
+        const symEl = document.getElementById('cs-weapon-symbol');
+        const glowEl = document.getElementById('cs-glow');
+        const quoteEl = document.getElementById('cs-quote');
+
+        if (!overlay || !titleEl) return;
+
+        titleEl.innerText = `${rune.prefix} 인챈트 각인`;
+        titleEl.style.color = rune.color;
+        rarityEl.innerText = rune.desc;
+        symEl.innerText = '🔮';
+        glowEl.style.background = rune.color;
+        quoteEl.innerText = `"고대의 에테르 지혜가 무기에 깃듭니다."`;
+
+        window.SoundFX.playLegendaryFanfare();
+        overlay.classList.remove('hidden');
+
+        const closeCutscene = () => overlay.classList.add('hidden');
+        overlay.onclick = closeCutscene;
+        setTimeout(closeCutscene, 4000);
+    }
+
+    // ------------------------------------------------------------------------
+    // 11. ITEM DETAIL MODAL
+    // ------------------------------------------------------------------------
+
+    function showItemModal(uid) {
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item) return;
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+        const modal = document.getElementById('item-modal');
+        if (!modal) return;
+
+        document.getElementById('modal-tier-badge').innerText = wDef.tier;
+        document.getElementById('modal-tier-badge').style.borderColor = wDef.color;
+        document.getElementById('modal-icon').innerText = wDef.icon;
+        document.getElementById('modal-title').innerText = `${item.runeId ? `${rDef.prefix} ` : ''}${wDef.name} +${item.enhancement}`;
+        document.getElementById('modal-title').style.color = item.runeId ? rDef.color : wDef.color;
+
+        const statsContainer = document.getElementById('modal-stats');
+        statsContainer.innerHTML = `
+            <span>공격력: <b style="color:var(--accent-cyan);">${formatNumber(item.power)}</b></span>
+            <span>품질: <b>${item.quality}%</b></span>
+            <span>보너스: <b>${item.enhancement > 0 ? `+${item.enhancement}` : '없음'}</b></span>
         `;
-        runeList.appendChild(item);
+
+        document.getElementById('modal-lore').innerText = wDef.lore;
+
+        const actions = document.getElementById('modal-actions');
+        const isEquipped = state.equippedWeaponUid === uid;
+        const price = computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
+
+        actions.innerHTML = `
+            <button class="buy-upg-btn" style="flex:1;" id="modal-equip-btn">
+                ${isEquipped ? '✅ 장착 중' : '⚔️ 대표 장착'}
+            </button>
+            <button class="mini-btn" id="modal-lock-btn">
+                ${item.locked ? '🔒 잠금 해제' : '🔓 잠금'}
+            </button>
+            <button class="mini-btn danger" id="modal-salvage-btn" ${item.locked ? 'disabled' : ''}>
+                💰 분해 (+${formatNumber(price)} 🪙)
+            </button>
+        `;
+
+        document.getElementById('modal-equip-btn').onclick = () => {
+            equipWeapon(uid);
+            modal.classList.add('hidden');
+        };
+        document.getElementById('modal-lock-btn').onclick = () => {
+            toggleLockInventoryItem(uid);
+            showItemModal(uid);
+        };
+        document.getElementById('modal-salvage-btn').onclick = () => {
+            salvageInventoryItem(uid);
+            modal.classList.add('hidden');
+        };
+
+        modal.classList.remove('hidden');
+        document.getElementById('modal-close-btn').onclick = () => modal.classList.add('hidden');
+    }
+
+    // ------------------------------------------------------------------------
+    // 12. UI RENDERING & COMPONENT SYNC
+    // ------------------------------------------------------------------------
+
+    function updateUI() {
+        // 1. Currencies
+        document.getElementById('disp-gold').innerText = formatNumber(state.gold);
+        document.getElementById('disp-ore').innerText = formatNumber(state.ore);
+        document.getElementById('disp-flame').innerText = formatNumber(state.flame);
+        document.getElementById('disp-total-dps').innerText = formatNumber(getMercenaryTotalDPS());
+
+        // 2. Workbench & Current Weapon
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+        const rDef = getRuneDef(state.activeRuneId);
+        const pwr = computeWeaponItemPower(wDef, state.currentEnhancement, state.currentQuality, rDef);
+        const salvagePrice = computeWeaponSalvagePrice(wDef, state.currentEnhancement, state.currentQuality, rDef);
+
+        const nameEl = document.getElementById('weapon-name');
+        nameEl.innerText = `${rDef ? `${rDef.prefix} ` : ''}${wDef.name} ${state.currentEnhancement > 0 ? `+${state.currentEnhancement}` : ''}`;
+        nameEl.style.color = rDef ? rDef.color : wDef.color;
+
+        document.getElementById('weapon-icon').innerText = wDef.icon;
+        document.getElementById('weapon-tier-badge').innerText = wDef.tier;
+        document.getElementById('weapon-tier-badge').style.borderColor = wDef.color;
+        document.getElementById('weapon-power').innerText = formatNumber(pwr);
+        document.getElementById('weapon-quality').innerText = `${state.currentQuality}%`;
+        document.getElementById('weapon-rarity-rate').innerText = wDef.rarityRate;
+        document.getElementById('weapon-enhance').innerText = `+${state.currentEnhancement}`;
+        document.getElementById('weapon-multiplier').innerText = `x${getFlameMultiplier().toFixed(2)} 승화 배수`;
+
+        const statusBadge = document.getElementById('weapon-status-badge');
+        if (state.isCraftingComplete) {
+            statusBadge.innerText = '✨ 제련 완료! (보관/분해 가능)';
+            statusBadge.className = 'weapon-status-badge ready';
+        } else {
+            statusBadge.innerText = '🔨 제련 진행 중...';
+            statusBadge.className = 'weapon-status-badge';
+        }
+
+        // 3. Progress bar
+        const pct = Math.min(100, Math.floor(state.forgeProgress));
+        document.getElementById('forge-pct').innerText = `${pct}%`;
+        document.getElementById('forge-bar').style.width = `${pct}%`;
+        document.getElementById('anvil-power-hint').innerText = `+${getHammerProgressPerHit()}% per hit`;
+
+        // 4. Action Buttons (Fix money duplication bug by checking state.isCraftingComplete)
+        const claimBtn = document.getElementById('claim-to-inv-btn');
+        const salvageBtn = document.getElementById('equip-or-sell-btn');
+
+        claimBtn.disabled = !state.isCraftingComplete;
+        salvageBtn.disabled = !state.isCraftingComplete;
+        document.getElementById('salvage-gold-preview').innerText = formatNumber(salvagePrice);
+
+        // 5. Rune altar preview
+        if (rDef) {
+            document.getElementById('active-rune-name').innerText = rDef.name;
+            document.getElementById('active-rune-name').style.color = rDef.color;
+            document.getElementById('active-rune-desc').innerText = rDef.desc;
+        } else {
+            document.getElementById('active-rune-name').innerText = '각인된 룬 없음';
+            document.getElementById('active-rune-name').style.color = '#fff';
+            document.getElementById('active-rune-desc').innerText = '에테르 광석 50개를 소모해 고대 룬을 추출하세요.';
+        }
+        document.getElementById('roll-rune-btn').disabled = state.ore < 50;
+
+        // 6. Upgrades View
+        renderUpgradesList();
+
+        // 7. Inventory View
+        renderInventoryList();
+
+        // 8. Weapon Codex View
+        renderCodexList();
+
+        // 9. Dungeons View
+        renderDungeonsList();
+
+        // 10. Ascension View
+        const pending = getPendingFlames();
+        document.getElementById('pending-flames').innerText = `+${pending} 🔥`;
+        document.getElementById('current-flame-mult').innerText = `x${getFlameMultiplier().toFixed(2)}`;
+        document.getElementById('ascend-btn').disabled = pending <= 0;
+    }
+
+    // ------------------------------------------------------------------------
+    // 13. DYNAMIC COMPONENT RENDERERS
+    // ------------------------------------------------------------------------
+
+    function renderUpgradesList() {
+        const container = document.getElementById('upgrades-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        window.UPGRADES_DATABASE.forEach(def => {
+            const currentLvl = state.upgrades[def.id] || 0;
+            const cost = Math.floor(def.baseCost * Math.pow(def.costMul, currentLvl));
+            const isMax = currentLvl >= def.maxLevel;
+            const canAfford = state.gold >= cost && !isMax;
+
+            const card = document.createElement('div');
+            card.className = `upgrade-card ${isMax ? 'locked' : ''}`;
+            card.innerHTML = `
+                <div class="upg-info">
+                    <span class="upg-title">${def.title}</span>
+                    <span class="upg-desc">${def.desc}</span>
+                    <span class="upg-level">레벨: ${currentLvl} / ${def.maxLevel}</span>
+                </div>
+                <button class="buy-upg-btn" ${canAfford ? '' : 'disabled'}>
+                    ${isMax ? 'MAXED' : `${formatNumber(cost)} 🪙`}
+                </button>
+            `;
+
+            // [버그 수정] 인라인 onclick 대신 완벽한 리스너 바인딩
+            const btn = card.querySelector('.buy-upg-btn');
+            if (btn && !isMax) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    buyUpgrade(def.id);
+                });
+            }
+
+            container.appendChild(card);
+        });
+    }
+
+    function renderInventoryList() {
+        const grid = document.getElementById('inventory-grid');
+        const badge = document.getElementById('inv-count-badge');
+        const eqDisplay = document.getElementById('equipped-weapon-display');
+        if (!grid || !badge) return;
+
+        badge.innerText = `${state.inventory.length}/${state.maxInventorySlots}`;
+
+        // 정렬 기준
+        const sortSelect = document.getElementById('inv-sort-select');
+        const sortBy = sortSelect ? sortSelect.value : 'power';
+
+        let sortedItems = [...state.inventory];
+        sortedItems.sort((a, b) => {
+            if (sortBy === 'power') return b.power - a.power;
+            if (sortBy === 'enhance') return b.enhancement - a.enhancement;
+            if (sortBy === 'recent') return b.forgedAt - a.forgedAt;
+            if (sortBy === 'tier') {
+                const tierOrder = { Common: 1, Uncommon: 2, Rare: 3, Epic: 4, Legendary: 5, Mythic: 6, Godly: 7 };
+                const aDef = window.WEAPONS_DATABASE.find(w => w.id === a.id);
+                const bDef = window.WEAPONS_DATABASE.find(w => w.id === b.id);
+                return (tierOrder[bDef ? bDef.tier : 'Common'] || 0) - (tierOrder[aDef ? aDef.tier : 'Common'] || 0);
+            }
+            return 0;
+        });
+
+        grid.innerHTML = '';
+        if (sortedItems.length === 0) {
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 30px;">보관된 무기가 없습니다. 제련을 완료하고 보관하세요!</div>';
+        } else {
+            sortedItems.forEach(item => {
+                const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+                const rDef = getRuneDef(item.runeId);
+                const isEquipped = state.equippedWeaponUid === item.uid;
+
+                const slot = document.createElement('div');
+                slot.className = `inv-slot ${isEquipped ? 'equipped' : ''}`;
+                slot.style.borderColor = rDef ? rDef.color : (wDef ? wDef.color : '#fff');
+                slot.innerHTML = `
+                    <div class="inv-icon">${wDef ? wDef.icon : '🗡️'}</div>
+                    <div class="inv-name" style="color:${rDef ? rDef.color : (wDef ? wDef.color : '#fff')}">
+                        ${item.enhancement > 0 ? `+${item.enhancement} ` : ''}${wDef ? wDef.name : 'Unknown'}
+                    </div>
+                    <div class="inv-power">⚡ ${formatNumber(item.power)}</div>
+                    ${item.locked ? '<span style="font-size:0.7rem; color:#ffcc00; margin-top:2px;">🔒</span>' : ''}
+                `;
+
+                slot.addEventListener('click', () => showItemModal(item.uid));
+                grid.appendChild(slot);
+            });
+        }
+
+        // 장착된 대표 무기 카드 표시
+        const equippedItem = getEquippedWeapon();
+        if (equippedItem && eqDisplay) {
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === equippedItem.id);
+            const rDef = getRuneDef(equippedItem.runeId);
+            eqDisplay.innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:2.2rem;">${wDef ? wDef.icon : '🗡️'}</span>
+                    <div>
+                        <div style="font-weight:800; font-size:1rem; color:${rDef ? rDef.color : wDef.color}">
+                            ${rDef ? `[${rDef.name}] ` : ''}${wDef.name} +${equippedItem.enhancement}
+                        </div>
+                        <div style="font-size:0.78rem; color:#aaa;">
+                            공격력: <b style="color:var(--accent-cyan);">${formatNumber(equippedItem.power)}</b> | 품질: <b>${equippedItem.quality}%</b>
+                        </div>
+                    </div>
+                </div>
+                <button class="mini-btn" id="unequip-active-btn">장착 해제</button>
+            `;
+            const unequipBtn = document.getElementById('unequip-active-btn');
+            if (unequipBtn) {
+                unequipBtn.onclick = () => {
+                    state.equippedWeaponUid = null;
+                    updateUI();
+                    autoSave();
+                };
+            }
+        } else if (eqDisplay) {
+            eqDisplay.innerHTML = '<span class="none-text">장착된 대표 무기가 없습니다. 인벤토리에서 무기를 선택하여 장착하세요.</span>';
+        }
+    }
+
+    function renderCodexList() {
+        const grid = document.getElementById('codex-grid');
+        const badge = document.getElementById('codex-count-badge');
+        const pctEl = document.getElementById('codex-completion-pct');
+        if (!grid || !badge) return;
+
+        const allWeapons = window.WEAPONS_DATABASE;
+        const totalWeaponsCount = allWeapons.length;
+        const discoveredCount = Object.keys(state.codex).length;
+        const pct = Math.floor((discoveredCount / totalWeaponsCount) * 100);
+
+        badge.innerText = `${discoveredCount}/${totalWeaponsCount}`;
+        if (pctEl) pctEl.innerText = `${pct}% (+${discoveredCount * 2}% 보너스)`;
+
+        grid.innerHTML = '';
+        allWeapons.forEach(w => {
+            const record = state.codex[w.id];
+            const isUnlocked = !!record;
+
+            const card = document.createElement('div');
+            card.className = `codex-card ${isUnlocked ? '' : 'locked'}`;
+            card.style.borderColor = isUnlocked ? w.color : 'rgba(255,255,255,0.08)';
+
+            if (isUnlocked) {
+                card.innerHTML = `
+                    <div class="codex-icon">${w.icon}</div>
+                    <div class="codex-name" style="color:${w.color};">${w.name}</div>
+                    <div class="codex-tier" style="color:${w.color};">${w.tier} (1/${w.rarityRate})</div>
+                    <div class="codex-lore">${w.lore}</div>
+                    <div class="codex-bonus">제련 횟수: ${record.timesForged}회 | 최고 강화: +${record.maxEnhance}</div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="codex-icon">❓</div>
+                    <div class="codex-name" style="color:#666;">미지의 무기</div>
+                    <div class="codex-tier" style="color:#555;">${w.tier}</div>
+                    <div class="codex-lore">아직 모루에서 제련하지 않은 비밀 무기입니다. 망치질을 계속하세요.</div>
+                `;
+            }
+
+            grid.appendChild(card);
+        });
+    }
+
+    function renderDungeonsList() {
+        const container = document.getElementById('dungeon-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const currentDPS = getMercenaryTotalDPS();
+        let totalGoldPerSec = 0;
+        let totalOrePerSec = 0;
+
+        window.DUNGEONS_DATABASE.forEach(d => {
+            const isUnlocked = (state.dungeons[d.id] || 0) > 0;
+            const canAfford = state.gold >= d.cost && currentDPS >= d.reqPower;
+
+            if (isUnlocked) {
+                totalGoldPerSec += d.goldPerSec;
+                totalOrePerSec += d.orePerSec;
+            }
+
+            const card = document.createElement('div');
+            card.className = `upgrade-card ${isUnlocked ? 'unlocked' : ''}`;
+            card.innerHTML = `
+                <div class="upg-info">
+                    <span class="upg-title">${d.name} ${isUnlocked ? '⚔️ [원정 중]' : '🔒'}</span>
+                    <span class="upg-desc">${d.desc}</span>
+                    <span class="upg-level">요구 전투력: ${formatNumber(d.reqPower)} | 수익: +${formatNumber(d.goldPerSec)} Gold/s, +${d.orePerSec} Ore/s</span>
+                </div>
+                ${isUnlocked ? '<span style="color:#00ffaa; font-weight:800; font-size:0.85rem;">탐험 가동 중</span>' : `
+                    <button class="buy-upg-btn" ${canAfford ? '' : 'disabled'}>
+                        해금: ${formatNumber(d.cost)} 🪙
+                    </button>
+                `}
+            `;
+
+            const btn = card.querySelector('.buy-upg-btn');
+            if (btn && !isUnlocked) {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    unlockDungeon(d.id);
+                });
+            }
+
+            container.appendChild(card);
+        });
+
+        document.getElementById('exp-total-dps').innerText = formatNumber(currentDPS);
+        document.getElementById('exp-passive-income').innerText = `+${formatNumber(totalGoldPerSec)} Gold/s`;
+        document.getElementById('exp-passive-ore').innerText = `+${totalOrePerSec.toFixed(1)} Ore/s`;
+    }
+
+    // ------------------------------------------------------------------------
+    // 14. SAVE & LOAD SYSTEM (LOCALSTORAGE)
+    // ------------------------------------------------------------------------
+
+    function autoSave() {
+        try {
+            state.lastSaveTimestamp = Date.now();
+            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.error('Save failed:', e);
+        }
+    }
+
+    function loadGame() {
+        try {
+            const raw = localStorage.getItem(SAVE_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                state = Object.assign({}, defaultState, parsed);
+                // 중첩 객체 깊은 병합
+                state.upgrades = Object.assign({}, defaultState.upgrades, parsed.upgrades || {});
+                state.dungeons = Object.assign({}, defaultState.dungeons, parsed.dungeons || {});
+                state.codex = Object.assign({}, parsed.codex || {});
+                state.inventory = Array.isArray(parsed.inventory) ? parsed.inventory : [];
+                state.settings = Object.assign({}, defaultState.settings, parsed.settings || {});
+                showToast('💾 저장된 게임 데이터를 성공적으로 불러왔습니다!', 'info');
+            }
+        } catch (e) {
+            console.error('Load failed:', e);
+        }
+    }
+
+    function hardResetGame() {
+        if (!confirm('⚠️ 정말로 모든 진행 상황을 완전히 삭제하고 초기화하시겠습니까?')) return;
+        if (!confirm('경고: 복구할 수 없습니다. 모든 무기와 도감 기록이 사라집니다.')) return;
+
+        localStorage.removeItem(SAVE_KEY);
+        location.reload();
+    }
+
+    // ------------------------------------------------------------------------
+    // 15. MAIN TICK GAME LOOP (PASSIVE REVENUE & AUTO-HAMMER)
+    // ------------------------------------------------------------------------
+
+    let lastTickTime = performance.now();
+    let autoHammerAccumulator = 0;
+
+    function gameLoop(currentTime) {
+        const dt = (currentTime - lastTickTime) / 1000;
+        lastTickTime = currentTime;
+
+        // 원정대 초당 자동 생산
+        let passiveGold = 0;
+        let passiveOre = 0;
+        window.DUNGEONS_DATABASE.forEach(d => {
+            if ((state.dungeons[d.id] || 0) > 0) {
+                passiveGold += d.goldPerSec;
+                passiveOre += d.orePerSec;
+            }
+        });
+
+        // 룬 버프 효과 (에테르의 룬 초당 +1 광석)
+        if (state.activeRuneId === 'r_ether') {
+            passiveOre += 1.0;
+        }
+
+        if (passiveGold > 0) state.gold += passiveGold * dt;
+        if (passiveOre > 0) state.ore += passiveOre * dt;
+
+        // 자동 풀무질 타격 (Auto Hammer)
+        if (state.settings.autoHammer || (state.upgrades.bellowsSpeed || 0) > 0) {
+            autoHammerAccumulator += dt;
+            const interval = getAutoBellowsInterval();
+            if (autoHammerAccumulator >= interval) {
+                autoHammerAccumulator = 0;
+                strikeAnvil(null);
+            }
+        }
+
+        updateUI();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ------------------------------------------------------------------------
+    // 16. EVENT LISTENERS INITIALIZATION
+    // ------------------------------------------------------------------------
+
+    window.addEventListener('DOMContentLoaded', () => {
+        particlesInstance = new window.ParticleEngine('particle-canvas');
+
+        // 1. 세이브 데이터 로드
+        loadGame();
+
+        // 2. 모루 타격
+        const anvilBtn = document.getElementById('anvil-btn');
+        if (anvilBtn) {
+            anvilBtn.addEventListener('click', (e) => strikeAnvil(e));
+        }
+
+        // 3. 인벤토리 보관 & 분해 버튼
+        const claimBtn = document.getElementById('claim-to-inv-btn');
+        if (claimBtn) {
+            claimBtn.addEventListener('click', claimCurrentWeaponToInventory);
+        }
+
+        const salvageBtn = document.getElementById('equip-or-sell-btn');
+        if (salvageBtn) {
+            salvageBtn.addEventListener('click', salvageCurrentWeapon);
+        }
+
+        // 4. 자동 망치질 토글
+        const autoHammerBtn = document.getElementById('auto-hammer-btn');
+        if (autoHammerBtn) {
+            autoHammerBtn.addEventListener('click', () => {
+                state.settings.autoHammer = !state.settings.autoHammer;
+                const statusSpan = document.getElementById('auto-hammer-status');
+                if (statusSpan) {
+                    statusSpan.innerText = state.settings.autoHammer ? 'ON' : 'OFF';
+                    statusSpan.style.color = state.settings.autoHammer ? '#00ffaa' : '#ff5555';
+                }
+            });
+        }
+
+        // 5. 룬 인챈트
+        const rollRuneBtn = document.getElementById('roll-rune-btn');
+        if (rollRuneBtn) {
+            rollRuneBtn.addEventListener('click', rollRune);
+        }
+
+        // 6. 환생 (승화)
+        const ascendBtn = document.getElementById('ascend-btn');
+        if (ascendBtn) {
+            ascendBtn.addEventListener('click', triggerAscension);
+        }
+
+        // 7. 상단 헤더 컨트롤
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                autoSave();
+                showToast('💾 수동 저장 완료!', 'success');
+            });
+        }
+
+        const soundBtn = document.getElementById('sound-btn');
+        if (soundBtn) {
+            soundBtn.addEventListener('click', () => {
+                const muted = window.SoundFX.toggleMute();
+                showToast(muted ? '🔇 음소거되었습니다.' : '🔊 효과음이 켜졌습니다.', 'info');
+            });
+        }
+
+        const hardResetBtn = document.getElementById('hard-reset-btn');
+        if (hardResetBtn) {
+            hardResetBtn.addEventListener('click', hardResetGame);
+        }
+
+        // 8. 일괄 분해 버튼
+        const sellAllCommonBtn = document.getElementById('inv-sell-all-common');
+        if (sellAllCommonBtn) {
+            sellAllCommonBtn.addEventListener('click', salvageAllCommonItems);
+        }
+
+        // 9. 탭 네비게이션
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                const targetId = btn.getAttribute('data-tab');
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) targetEl.classList.add('active');
+            });
+        });
+
+        // 10. 인벤토리 정렬 필터 변경
+        const sortSelect = document.getElementById('inv-sort-select');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', renderInventoryList);
+        }
+
+        // 11. 고대 룬 로스터 목록 렌더링
+        const runeListContainer = document.getElementById('rune-collection-list');
+        if (runeListContainer) {
+            window.RUNES_DATABASE.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'upgrade-card';
+                item.style.borderColor = r.color;
+                item.innerHTML = `
+                    <div class="upg-info">
+                        <span class="upg-title" style="color:${r.color}">${r.name} (${r.prefix})</span>
+                        <span class="upg-desc">${r.desc}</span>
+                    </div>
+                    <span style="font-size:0.8rem; font-weight:800; color:#aaa;">${r.weight}% 확률</span>
+                `;
+                runeListContainer.appendChild(item);
+            });
+        }
+
+        // 10초 주기 자동 저장
+        setInterval(autoSave, 10000);
+
+        // 첫 프레임 UI 업데이트 및 루프 개시
+        updateUI();
+        requestAnimationFrame(gameLoop);
     });
 
-    updateUI();
-    requestAnimationFrame(gameLoop);
-});
+})();
