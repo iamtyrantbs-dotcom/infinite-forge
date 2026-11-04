@@ -1,5 +1,6 @@
 // ============================================================================
-// INFINITE FORGE - ADVENTURE STAGES DATABASE (보스 & 추천 전투력 & 버프)
+// INFINITE FORGE - ADVENTURE STAGES DATABASE (1~30 스테이지 완벽 확장)
+// 5의 배수마다 강력한 영구 관문 버프 & 60초 타임어택 & 보스 전투
 // ============================================================================
 
 const STAGES_DATABASE = [
@@ -17,7 +18,7 @@ const STAGES_DATABASE = [
         minionCount: 8,
         minionIcon: '👺',
         rewardGold: 150,
-        rewardOre: 10,
+        rewardOre: 5,
         bossColor: '#22c55e'
     },
     {
@@ -34,7 +35,7 @@ const STAGES_DATABASE = [
         minionCount: 10,
         minionIcon: '🐕',
         rewardGold: 380,
-        rewardOre: 18,
+        rewardOre: 8,
         bossColor: '#38bdf8'
     },
     {
@@ -51,7 +52,7 @@ const STAGES_DATABASE = [
         minionCount: 12,
         minionIcon: '🦴',
         rewardGold: 950,
-        rewardOre: 35,
+        rewardOre: 12,
         bossColor: '#cbd5e1'
     },
     {
@@ -68,7 +69,7 @@ const STAGES_DATABASE = [
         minionCount: 14,
         minionIcon: '🪵',
         rewardGold: 2400,
-        rewardOre: 60,
+        rewardOre: 18,
         bossColor: '#b45309'
     },
     {
@@ -85,7 +86,7 @@ const STAGES_DATABASE = [
         minionCount: 15,
         minionIcon: '🪨',
         rewardGold: 6000,
-        rewardOre: 150,
+        rewardOre: 35,
         bossColor: '#a855f7',
         buffReward: {
             title: '골렘의 대지 갑주',
@@ -106,7 +107,7 @@ const STAGES_DATABASE = [
         minionCount: 15,
         minionIcon: '☄️',
         rewardGold: 14000,
-        rewardOre: 280,
+        rewardOre: 50,
         bossColor: '#ef4444'
     },
     {
@@ -123,7 +124,7 @@ const STAGES_DATABASE = [
         minionCount: 16,
         minionIcon: '👻',
         rewardGold: 32000,
-        rewardOre: 500,
+        rewardOre: 80,
         bossColor: '#818cf8'
     },
     {
@@ -140,7 +141,7 @@ const STAGES_DATABASE = [
         minionCount: 18,
         minionIcon: '🦎',
         rewardGold: 75000,
-        rewardOre: 900,
+        rewardOre: 120,
         bossColor: '#10b981'
     },
     {
@@ -157,7 +158,7 @@ const STAGES_DATABASE = [
         minionCount: 20,
         minionIcon: '🧊',
         rewardGold: 170000,
-        rewardOre: 1800,
+        rewardOre: 200,
         bossColor: '#06b6d4'
     },
     {
@@ -174,7 +175,7 @@ const STAGES_DATABASE = [
         minionCount: 22,
         minionIcon: '🦎',
         rewardGold: 450000,
-        rewardOre: 4000,
+        rewardOre: 350,
         bossColor: '#f97316',
         buffReward: {
             title: '화염룡의 핏빛 심장',
@@ -195,7 +196,7 @@ const STAGES_DATABASE = [
         minionCount: 22,
         minionIcon: '🌀',
         rewardGold: 1100000,
-        rewardOre: 8500,
+        rewardOre: 600,
         bossColor: '#a855f7'
     },
     {
@@ -212,7 +213,7 @@ const STAGES_DATABASE = [
         minionCount: 24,
         minionIcon: '🦇',
         rewardGold: 2800000,
-        rewardOre: 18000,
+        rewardOre: 1000,
         bossColor: '#9333ea'
     },
     {
@@ -229,7 +230,7 @@ const STAGES_DATABASE = [
         minionCount: 25,
         minionIcon: '✨',
         rewardGold: 7000000,
-        rewardOre: 40000,
+        rewardOre: 1800,
         bossColor: '#38bdf8'
     },
     {
@@ -246,7 +247,7 @@ const STAGES_DATABASE = [
         minionCount: 28,
         minionIcon: '🛡️',
         rewardGold: 18000000,
-        rewardOre: 90000,
+        rewardOre: 3000,
         bossColor: '#e11d48'
     },
     {
@@ -254,20 +255,288 @@ const STAGES_DATABASE = [
         name: '태초의 신전 (관문 보스)',
         desc: '창세의 신성한 불꽃을 다스리는 절대자 크리에이터의 옥좌입니다.',
         recPower: 4000000,
-        bossName: '창세신 솔라리스 (최종 거신)',
-        bossIcon: '👑',
+        bossName: '창세신 솔라리스 (태양의 신)',
+        bossIcon: '☀️',
         bossHp: 250000000,
         bossAtk: 320000,
         minionHp: 12000000,
         minionAtk: 110000,
         minionCount: 30,
-        minionIcon: '☀️',
+        minionIcon: '👑',
         rewardGold: 50000000,
-        rewardOre: 250000,
+        rewardOre: 6000,
         bossColor: '#eab308',
         buffReward: {
             title: '창세신의 절대 권능',
-            desc: '영구 전 스탯 1.5배 & 무기 분해 골드 2배 & 에테르 광석 수급 2배'
+            desc: '영구 전 스탯 +50% & 무기 분해 골드 2배 & 에테르 광석 수급 2배'
+        }
+    },
+    // --- 16~30스테이지 신규 확장 (초월계 & 심우주 영역) ---
+    {
+        stage: 16,
+        name: '영원의 에테르 협곡',
+        desc: '원초적인 에테르가 폭포처럼 쏟아져 내리는 신성한 협곡입니다.',
+        recPower: 10000000,
+        bossName: '에테르 타이탄 오리온',
+        bossIcon: '💎',
+        bossHp: 650000000,
+        bossAtk: 750000,
+        minionHp: 32000000,
+        minionAtk: 260000,
+        minionCount: 30,
+        minionIcon: '💠',
+        rewardGold: 130000000,
+        rewardOre: 10000,
+        bossColor: '#00e5ff'
+    },
+    {
+        stage: 17,
+        name: '시간의 모래 언덕',
+        desc: '과거와 미래의 환영이 얽혀 시간의 균열을 일으키는 사막입니다.',
+        recPower: 25000000,
+        bossName: '시간의 지배자 크로노스',
+        bossIcon: '⏳',
+        bossHp: 1700000000,
+        bossAtk: 1800000,
+        minionHp: 85000000,
+        minionAtk: 600000,
+        minionCount: 32,
+        minionIcon: '⌛',
+        rewardGold: 340000000,
+        rewardOre: 18000,
+        bossColor: '#facc15'
+    },
+    {
+        stage: 18,
+        name: '비탄의 암흑 성운',
+        desc: '빛조차 빠져나오지 못하는 초거대 중력의 암흑 영역입니다.',
+        recPower: 60000000,
+        bossName: '블랙홀 골리앗 볼텍스',
+        bossIcon: '🕳️',
+        bossHp: 4500000000,
+        bossAtk: 4200000,
+        minionHp: 220000000,
+        minionAtk: 1400000,
+        minionCount: 32,
+        minionIcon: '🌑',
+        rewardGold: 900000000,
+        rewardOre: 32000,
+        bossColor: '#6366f1'
+    },
+    {
+        stage: 19,
+        name: '천벌의 번개 첨탑',
+        desc: '수천만 볼트의 푸른 번개가 대지를 뒤흔드는 심판의 요새입니다.',
+        recPower: 150000000,
+        bossName: '뇌제 바알제불',
+        bossIcon: '⚡',
+        bossHp: 12000000000,
+        bossAtk: 9500000,
+        minionHp: 600000000,
+        minionAtk: 3200000,
+        minionCount: 34,
+        minionIcon: '🌩️',
+        rewardGold: 2400000000,
+        rewardOre: 55000,
+        bossColor: '#3b82f6'
+    },
+    {
+        stage: 20,
+        name: '차원 특이점의 핵 (관문 보스)',
+        desc: '모든 평행우주의 경계가 교차하는 무한의 중심핵입니다.',
+        recPower: 400000000,
+        bossName: '오메가 싱귤래리티 (무한의 핵)',
+        bossIcon: '🌌',
+        bossHp: 32000000000,
+        bossAtk: 22000000,
+        minionHp: 1600000000,
+        minionAtk: 7500000,
+        minionCount: 35,
+        minionIcon: '⚛️',
+        rewardGold: 6500000000,
+        rewardOre: 100000,
+        bossColor: '#ec4899',
+        buffReward: {
+            title: '무한 특이점의 축복',
+            desc: '영구 모험 데미지 +60% & 이동속도 +20% & 대장장이 강화 확률 +3%'
+        }
+    },
+    {
+        stage: 21,
+        name: '성운의 별무리 제단',
+        desc: '초신성이 폭발하며 탄생한 별가루 정령들이 모인 성역입니다.',
+        recPower: 1000000000,
+        bossName: '초신성 군주 노바',
+        bossIcon: '🌠',
+        bossHp: 85000000000,
+        bossAtk: 52000000,
+        minionHp: 4200000000,
+        minionAtk: 18000000,
+        minionCount: 35,
+        minionIcon: '⭐',
+        rewardGold: 17000000000,
+        rewardOre: 180000,
+        bossColor: '#f43f5e'
+    },
+    {
+        stage: 22,
+        name: '무저갱의 영혼 감옥',
+        desc: '우주의 죄인들이 영원히 고통받는 차원 감옥입니다.',
+        recPower: 2600000000,
+        bossName: '간수장 헬하운드 케르베로스',
+        bossIcon: '🐕‍🦺',
+        bossHp: 220000000000,
+        bossAtk: 125000000,
+        minionHp: 11000000000,
+        minionAtk: 42000000,
+        minionCount: 36,
+        minionIcon: '⛓️',
+        rewardGold: 45000000000,
+        rewardOre: 320000,
+        bossColor: '#dc2626'
+    },
+    {
+        stage: 23,
+        name: '신성 제국의 몰락지',
+        desc: '신들에게 도전했다가 멸망한 천공 제국의 거대 잔해입니다.',
+        recPower: 7000000000,
+        bossName: '타락한 대천사 미카엘',
+        bossIcon: '🪽',
+        bossHp: 600000000000,
+        bossAtk: 300000000,
+        minionHp: 30000000000,
+        minionAtk: 100000000,
+        minionCount: 36,
+        minionIcon: '🗡️',
+        rewardGold: 120000000000,
+        rewardOre: 580000,
+        bossColor: '#fbbf24'
+    },
+    {
+        stage: 24,
+        name: '혼돈의 심연 카오스',
+        desc: '형태도 질서도 존재하지 않는 혼돈의 소용돌이입니다.',
+        recPower: 18000000000,
+        bossName: '혼돈의 현신 카오스',
+        bossIcon: '🌀',
+        bossHp: 1600000000000,
+        bossAtk: 720000000,
+        minionHp: 80000000000,
+        minionAtk: 240000000,
+        minionCount: 38,
+        minionIcon: '🌪️',
+        rewardGold: 320000000000,
+        rewardOre: 1000000,
+        bossColor: '#8b5cf6'
+    },
+    {
+        stage: 25,
+        name: '태초의 대장간 심장부 (관문 보스)',
+        desc: '우주 전체의 모든 무기와 원소를 벼려낸 태초의 거대 모루입니다.',
+        recPower: 50000000000,
+        bossName: '태초의 대장장이 헤파이스토스',
+        bossIcon: '⚒️',
+        bossHp: 4500000000000,
+        bossAtk: 1800000000,
+        minionHp: 220000000000,
+        minionAtk: 600000000,
+        minionCount: 40,
+        minionIcon: '🔨',
+        rewardGold: 900000000000,
+        rewardOre: 2000000,
+        bossColor: '#f97316',
+        buffReward: {
+            title: '신조의 대장장이 비전',
+            desc: '영구 모루 진행도 2배 & 대성공 확률 +5% & 공격력 +80%'
+        }
+    },
+    {
+        stage: 26,
+        name: '빛과 어둠의 경계선',
+        desc: '모든 존재의 양극단이 충돌하며 차원을 분쇄하는 공간입니다.',
+        recPower: 130000000000,
+        bossName: '황혼의 듀얼 아비터',
+        bossIcon: '☯️',
+        bossHp: 12000000000000,
+        bossAtk: 4500000000,
+        minionHp: 600000000000,
+        minionAtk: 1500000000,
+        minionCount: 40,
+        minionIcon: '🌓',
+        rewardGold: 2500000000000,
+        rewardOre: 3800000,
+        bossColor: '#e2e8f0'
+    },
+    {
+        stage: 27,
+        name: '인과율의 시계탑',
+        desc: '우주 모든 생명체의 운명과 인과가 태엽으로 돌아가는 성소입니다.',
+        recPower: 350000000000,
+        bossName: '인과율의 수호신 데스티니',
+        bossIcon: '🕰️',
+        bossHp: 32000000000000,
+        bossAtk: 11000000000,
+        minionHp: 1600000000000,
+        minionAtk: 3800000000,
+        minionCount: 42,
+        minionIcon: '⚙️',
+        rewardGold: 7000000000000,
+        rewardOre: 7000000,
+        bossColor: '#d97706'
+    },
+    {
+        stage: 28,
+        name: '망각 너머의 무한 공허',
+        desc: '개념조차 지워진 완벽한 무(無)의 공간입니다.',
+        recPower: 900000000000,
+        bossName: '보이드 엠퍼러 (공허의 황제)',
+        bossIcon: '🪐',
+        bossHp: 85000000000000,
+        bossAtk: 28000000000,
+        minionHp: 4200000000000,
+        minionAtk: 9500000000,
+        minionCount: 42,
+        minionIcon: '💫',
+        rewardGold: 20000000000000,
+        rewardOre: 13000000,
+        bossColor: '#4f46e5'
+    },
+    {
+        stage: 29,
+        name: '신살자의 무덤',
+        desc: '과거 절대신에게 도전했던 불멸의 무구들이 꽂혀있는 전장입니다.',
+        recPower: 2500000000000,
+        bossName: '신살자 아레스의 망령',
+        bossIcon: '🗡️',
+        bossHp: 240000000000000,
+        bossAtk: 72000000000,
+        minionHp: 12000000000000,
+        minionAtk: 25000000000,
+        minionCount: 44,
+        minionIcon: '🩸',
+        rewardGold: 60000000000000,
+        rewardOre: 25000000,
+        bossColor: '#be123c'
+    },
+    {
+        stage: 30,
+        name: '인피니트 엑시스 (최종 절대 관문)',
+        desc: '모든 평행우주와 차원을 창조하고 파괴하는 절대 불멸의 신좌입니다.',
+        recPower: 7000000000000,
+        bossName: '인피니티 오버로드 (우주 절대신)',
+        bossIcon: '👑',
+        bossHp: 750000000000000,
+        bossAtk: 200000000000,
+        minionHp: 38000000000000,
+        minionAtk: 70000000000,
+        minionCount: 45,
+        minionIcon: '🔥',
+        rewardGold: 200000000000000,
+        rewardOre: 50000000,
+        bossColor: '#ff0055',
+        buffReward: {
+            title: '인피니트 오버로드의 왕관',
+            desc: '영구 전 스탯 3배 & 모루 크리티컬 100% & 모든 재화 획득 3배'
         }
     }
 ];

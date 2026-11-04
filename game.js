@@ -146,6 +146,12 @@
         if (state.adventure.earnedBuffs.includes(10)) mult += 0.30;
         // 15스테이지: +50%
         if (state.adventure.earnedBuffs.includes(15)) mult += 0.50;
+        // 20스테이지: +60%
+        if (state.adventure.earnedBuffs.includes(20)) mult += 0.60;
+        // 25스테이지: +80%
+        if (state.adventure.earnedBuffs.includes(25)) mult += 0.80;
+        // 30스테이지: +200% (최종 권능)
+        if (state.adventure.earnedBuffs.includes(30)) mult += 2.00;
         return mult;
     }
 
@@ -164,7 +170,12 @@
         if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(5)) {
             bonus += 2;
         }
-        return Math.floor(base + bonus);
+        let total = base + bonus;
+        // 25스테이지 클리어 버프: 신조의 대장장이 비전 (진행도 2배)
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(25)) {
+            total *= 2;
+        }
+        return Math.floor(total);
     }
 
     function getAnvilQualityBonus() {
@@ -196,6 +207,9 @@
     }
 
     function getCriticalChance() {
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(30)) {
+            return 1.0; // 30스테이지 인피니트 오버로드 왕관: 크리티컬 100%
+        }
         const upgLvl = state.upgrades.criticalStrike || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'criticalStrike');
         return 0.10 + (upgDef ? upgDef.effect(upgLvl) : 0);
@@ -916,6 +930,16 @@
         const bonusSuccess = masterDef ? masterDef.effect(state.upgrades.smithMastery || 0) : 0;
         success += bonusSuccess;
 
+        // 20스테이지 클리어 버프: 강화 성공률 +3%
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(20)) {
+            success += 0.03;
+        }
+
+        // 25스테이지 클리어 버프: 대성공 확률 +5%
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(25)) {
+            great += 0.05;
+        }
+
         const safetyDef = window.UPGRADES_DATABASE.find(u => u.id === 'safetyForge');
         const reduceBroken = safetyDef ? safetyDef.effect(state.upgrades.safetyForge || 0) : 0;
         broken = Math.max(0, broken - reduceBroken);
@@ -1267,6 +1291,11 @@
         // 플레이어 기본 체력 및 버프 반영
         let playerMaxHp = 100 + Math.floor(basePlayerPower * 0.5);
         if (state.adventure.earnedBuffs.includes(5)) playerMaxHp = Math.floor(playerMaxHp * 1.25);
+        if (state.adventure.earnedBuffs.includes(15)) playerMaxHp = Math.floor(playerMaxHp * 1.50);
+        if (state.adventure.earnedBuffs.includes(30)) playerMaxHp = Math.floor(playerMaxHp * 3.00);
+
+        let playerSpeed = 160;
+        if (state.adventure.earnedBuffs.includes(20)) playerSpeed = Math.floor(playerSpeed * 1.20);
 
         // 몬스터 생성 (미니언들 + 보스)
         const minions = [];
@@ -1293,7 +1322,7 @@
                 y: 170,
                 hp: playerMaxHp,
                 maxHp: playerMaxHp,
-                speed: 160,
+                speed: playerSpeed,
                 size: 18,
                 atk: Math.max(15, Math.floor(basePlayerPower * 0.8)),
                 swingTimer: 0,
