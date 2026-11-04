@@ -376,81 +376,81 @@ const RUNES_DATABASE = [
 ];
 
 // ============================================================================
-// UPGRADES DATABASE (대장간 시설 업그레이드)
+// UPGRADES DATABASE (대장간 시설 업그레이드 - 리밸런싱 완벽 적용)
 // ============================================================================
 
 const UPGRADES_DATABASE = [
     {
         id: 'hammerPower',
         title: '헤비 오리하르콘 해머',
-        desc: '타격당 제련 진행도를 +3% 추가 상승시킵니다.',
-        baseCost: 15,
-        costMul: 1.35,
+        desc: '타격당 제련 진행도를 +4% 추가 상승시킵니다. (시원한 제작 속도)',
+        baseCost: 20,
+        costMul: 1.18,
         maxLevel: 100,
-        effect: (lvl) => lvl * 3
+        effect: (lvl) => lvl * 4
     },
     {
         id: 'anvilQuality',
         title: '미스릴 합금 모루',
-        desc: '무기 분해 시 회수하는 골드 가치를 +20% 증가시킵니다.',
-        baseCost: 40,
-        costMul: 1.38,
+        desc: '무기 분해 시 회수하는 골드 가치를 +25% 증가시킵니다.',
+        baseCost: 50,
+        costMul: 1.20,
         maxLevel: 100,
-        effect: (lvl) => lvl * 0.20
+        effect: (lvl) => lvl * 0.25
     },
     {
         id: 'bellowsSpeed',
         title: '지옥불 자동 풀무 (Auto)',
-        desc: '자동 망치질 속도를 단축하고 초당 자동 타격을 활성화합니다.',
-        baseCost: 100,
-        costMul: 1.45,
-        maxLevel: 50,
-        effect: (lvl) => Math.max(0.12, 0.85 - (lvl * 0.05))
+        desc: '자동 망치질 타격 속도를 단축하고 부드러운 자동 제작을 지원합니다.',
+        baseCost: 120,
+        costMul: 1.22,
+        maxLevel: 60,
+        effect: (lvl) => Math.max(0.08, 0.80 - (lvl * 0.02))
     },
     {
         id: 'oreMagnet',
         title: '에테르 광맥 유도기',
-        desc: '모루 타격 시 에테르 광석이 드랍될 확률을 +4% 증가시킵니다.',
-        baseCost: 180,
-        costMul: 1.50,
+        desc: '모루 타격 시 에테르 광석이 드랍될 확률을 +3% 증가시킵니다. (최대 75%)',
+        baseCost: 200,
+        costMul: 1.22,
         maxLevel: 25,
-        effect: (lvl) => lvl * 0.04
+        effect: (lvl) => Math.min(0.75, lvl * 0.03)
     },
     {
         id: 'qualityMastery',
         title: '담금질 장인의 손길',
-        desc: '제련 완성 시 무기의 품질(Quality) 기본치를 +5% 상승시킵니다.',
-        baseCost: 450,
-        costMul: 1.55,
-        maxLevel: 40,
-        effect: (lvl) => lvl * 5
+        desc: '제련 완성 시 무기의 기본 품질(Quality)을 +4% 상승시킵니다.',
+        baseCost: 350,
+        costMul: 1.22,
+        maxLevel: 50,
+        effect: (lvl) => lvl * 4
     },
     {
         id: 'enhancementLuck',
         title: '축복받은 불꽃 제련',
-        desc: '무기 완성 시 보너스 강화 수치(+1 ~ +7)가 붙을 확률이 증가합니다.',
-        baseCost: 1200,
-        costMul: 1.65,
-        maxLevel: 20,
-        effect: (lvl) => lvl * 0.1
+        desc: '무기 제련 시 고강화 보너스 수치(+1 ~ +7)가 붙을 확률이 크게 상승합니다.',
+        baseCost: 600,
+        costMul: 1.24,
+        maxLevel: 30,
+        effect: (lvl) => lvl * 0.08
     },
     {
         id: 'criticalStrike',
         title: '벼림의 크리티컬',
-        desc: '10% 확률로 3배 파워의 강력한 모루 타격이 발동합니다.',
-        baseCost: 3500,
-        costMul: 1.70,
-        maxLevel: 15,
-        effect: (lvl) => lvl * 0.05
+        desc: '모루 타격 시 3배 파워의 크리티컬 발동 확률을 +3% 증가시킵니다. (최대 85%)',
+        baseCost: 1000,
+        costMul: 1.25,
+        maxLevel: 25,
+        effect: (lvl) => Math.min(0.75, lvl * 0.03)
     },
     {
         id: 'ancientWhisper',
         title: '고대 대장장이의 비전서',
-        desc: '고티어(Rare 이상) 무기가 제련될 확률을 +15%씩 곱연산 상승시킵니다.',
-        baseCost: 15000,
-        costMul: 1.85,
-        maxLevel: 10,
-        effect: (lvl) => 1 + (lvl * 0.15)
+        desc: '고티어(Rare 이상) 무기가 제련될 확률을 레벨당 +18%씩 곱연산 상승시킵니다.',
+        baseCost: 2500,
+        costMul: 1.28,
+        maxLevel: 25,
+        effect: (lvl) => 1 + (lvl * 0.18)
     }
 ];
 
