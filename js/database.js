@@ -510,7 +510,7 @@ const UPGRADES_DATABASE = [
 ];
 
 // ============================================================================
-// DUNGEONS DATABASE (던전 원정대 시스템 - ORE 획득량 대폭 너프 조정)
+// DUNGEONS DATABASE (던전 원정대 시스템 - 전반적 보상 너프 & 신규 고티어 5개 구역 추가)
 // ============================================================================
 
 const DUNGEONS_DATABASE = [
@@ -519,8 +519,8 @@ const DUNGEONS_DATABASE = [
         name: '고블린 광산 동굴',
         engName: 'Goblin Cave',
         reqPower: 30,
-        goldPerSec: 8,
-        orePerSec: 0.04,
+        goldPerSec: 3,
+        orePerSec: 0.01,
         cost: 60,
         desc: '약탈당한 광산에 숨어든 고블린 소탕. 초반 골드와 미량의 에테르 광석 보급처.'
     },
@@ -529,8 +529,8 @@ const DUNGEONS_DATABASE = [
         name: '망령들의 지하 납골당',
         engName: 'Undead Crypt',
         reqPower: 180,
-        goldPerSec: 35,
-        orePerSec: 0.12,
+        goldPerSec: 12,
+        orePerSec: 0.03,
         cost: 350,
         desc: '죽은 병사들의 유골이 배회하는 폐허. 고대 철제 유물과 귀금속을 발굴합니다.'
     },
@@ -539,8 +539,8 @@ const DUNGEONS_DATABASE = [
         name: '마법석 골렘 보호구역',
         engName: 'Golem Sanctuary',
         reqPower: 900,
-        goldPerSec: 180,
-        orePerSec: 0.35,
+        goldPerSec: 60,
+        orePerSec: 0.08,
         cost: 2200,
         desc: '거대한 마법 골렘들이 지키는 성역. 에테르 광맥을 천천히 채굴합니다.'
     },
@@ -549,18 +549,18 @@ const DUNGEONS_DATABASE = [
         name: '작열하는 드래곤 영봉',
         engName: 'Dragon Peak',
         reqPower: 6000,
-        goldPerSec: 1200,
-        orePerSec: 1.20,
+        goldPerSec: 350,
+        orePerSec: 0.25,
         cost: 18000,
-        desc: '화염룡이 둥지를 튼 화산 봉우리. 드래곤의 보물창고에서 막대한 황금을 약탈합니다.'
+        desc: '화염룡이 둥지를 튼 화산 봉우리. 드래곤 둥지의 잔해에서 귀중한 광물들을 회수합니다.'
     },
     {
         id: 'd_abyssal_rift',
         name: '차원 균열 심연',
         engName: 'Abyssal Rift',
         reqPower: 45000,
-        goldPerSec: 9500,
-        orePerSec: 4.50,
+        goldPerSec: 2200,
+        orePerSec: 0.80,
         cost: 120000,
         desc: '뒤틀린 차원의 틈새. 이세계의 물질과 정제된 에테르가 추출됩니다.'
     },
@@ -569,10 +569,60 @@ const DUNGEONS_DATABASE = [
         name: '천상계의 별빛 요새',
         engName: 'Celestial Citadel',
         reqPower: 350000,
-        goldPerSec: 80000,
-        orePerSec: 15.00,
+        goldPerSec: 16000,
+        orePerSec: 2.20,
         cost: 950000,
-        desc: '신화 속 신들이 기거하던 부유 성채. 상상을 초월하는 부와 신성한 에테르를 수확합니다.'
+        desc: '신화 속 신들이 기거하던 부유 성채. 고대 유적에서 부와 신성한 에테르를 수확합니다.'
+    },
+    {
+        id: 'd_chrono_vortex',
+        name: '시간 왜곡의 소용돌이',
+        engName: 'Chrono Vortex',
+        reqPower: 2500000,
+        goldPerSec: 90000,
+        orePerSec: 5.50,
+        cost: 8000000,
+        desc: '과거와 미래가 소용돌이치는 시간의 틈. 시공간 압축으로 응결된 시간석과 황금을 얻습니다.'
+    },
+    {
+        id: 'd_astral_forge_ruins',
+        name: '성간 아스트랄 대장간 유적',
+        engName: 'Astral Forge Ruins',
+        reqPower: 18000000,
+        goldPerSec: 450000,
+        orePerSec: 12.00,
+        cost: 65000000,
+        desc: '우주 신들이 별을 담금질하던 초대형 성간 대장간 잔해. 고밀도 에테르와 은하 주괴를 채취합니다.'
+    },
+    {
+        id: 'd_void_cathedral',
+        name: '공허 군주의 암흑 대성당',
+        engName: 'Void Cathedral',
+        reqPower: 120000000,
+        goldPerSec: 2200000,
+        orePerSec: 25.00,
+        cost: 500000000,
+        desc: '모든 빛이 흡수되는 공허의 중심부. 암흑 물질과 심연의 에테르를 응축해 자원을 창출합니다.'
+    },
+    {
+        id: 'd_primordial_chaos_core',
+        name: '태초 혼돈의 핵',
+        engName: 'Primordial Chaos Core',
+        reqPower: 800000000,
+        goldPerSec: 10000000,
+        orePerSec: 55.00,
+        cost: 3500000000,
+        desc: '천지창조 이전의 원초적 에너지가 끓어오르는 불꽃의 핵. 순수한 에너지 결정을 추출합니다.'
+    },
+    {
+        id: 'd_infinity_overlord_realm',
+        name: '무한 오버로드의 절대 차원계',
+        engName: 'Infinite Realm of Overlords',
+        reqPower: 5000000000,
+        goldPerSec: 45000000,
+        orePerSec: 120.00,
+        cost: 25000000000,
+        desc: '전 우주의 법칙을 초월한 궁극의 영역. 무한히 순환하는 황금과 우주 최정점의 오레가 생산됩니다.'
     }
 ];
 

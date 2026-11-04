@@ -64,7 +64,12 @@
             d_golem_sanctuary: 0,
             d_dragon_peak: 0,
             d_abyssal_rift: 0,
-            d_celestial_citadel: 0
+            d_celestial_citadel: 0,
+            d_chrono_vortex: 0,
+            d_astral_forge_ruins: 0,
+            d_void_cathedral: 0,
+            d_primordial_chaos_core: 0,
+            d_infinity_overlord_realm: 0
         },
 
         // 시스템 설정
