@@ -307,7 +307,7 @@
             progressGain *= 2;
         }
 
-        state.forgeProgress = Math.min(100, state.forgeProgress + progressGain);
+        state.forgeProgress = state.forgeProgress + progressGain;
 
         // 시각적 피드백 및 파티클
         const btnRect = document.getElementById('anvil-btn').getBoundingClientRect();
@@ -339,18 +339,24 @@
             }
         }
 
-        // 100% 도달 시 제련 완성 판정
-        if (state.forgeProgress >= 100 && !state.isCraftingComplete) {
-            onWeaponCraftComplete();
+        // 100% 이상 도달 시 제련 완성 판정 (프로그래스가 누적되어 600% 등 한 번에 쌓일 경우 누적된 횟수만큼 연속 뽑기)
+        if (state.forgeProgress >= 100) {
+            const rollCount = Math.floor(state.forgeProgress / 100);
+            state.forgeProgress = state.forgeProgress % 100;
+            for (let i = 0; i < rollCount; i++) {
+                onWeaponCraftComplete(i === rollCount - 1, rollCount);
+            }
         }
 
         updateUI();
     }
 
-    function onWeaponCraftComplete() {
+    function onWeaponCraftComplete(isLastRoll = true, totalRolls = 1) {
         state.isCraftingComplete = true;
         state.totalWeaponsForged++;
-        window.SoundFX.playCraftComplete();
+        if (isLastRoll) {
+            window.SoundFX.playCraftComplete();
+        }
 
         // 1. 무기 추첨 (RNG Roll with Ancient Whisper & Celestial Destiny Bonus)
         const whisper = getAncientWhisperMult();
@@ -418,7 +424,11 @@
             triggerCinematicCutscene(selectedWeapon, state.currentEnhancement);
         }
 
-        showCraftToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
+        if (totalRolls > 1) {
+            showCraftToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} (누적 ${totalRolls}연속 제련!)`, 'success');
+        } else {
+            showCraftToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
+        }
         autoSave();
 
         // 7. 스마트 자동 분류 (Auto-Filter) 판정 및 즉시 처리
