@@ -96,6 +96,9 @@
 
             <!-- 세이브 & 컨트롤 버튼 -->
             <div class="header-controls">
+                <button id="toggle-cutscene-btn" class="hud-pill-btn active" title="고등급 컷신 팝업 보기 / 건너뛰기">
+                    🎬 팝업 연출: <b id="cutscene-status-text">ON</b>
+                </button>
                 <button id="save-btn" class="hud-icon-btn" title="진행상황 저장">💾</button>
                 <button id="sound-btn" class="hud-icon-btn" title="사운드 토글">🔊</button>
                 <button id="hard-reset-btn" class="hud-icon-btn danger" title="전체 데이터 초기화">⚠️</button>
@@ -261,7 +264,9 @@
                                 <option value="enhance">강화도 순</option>
                                 <option value="recent">최신 순</option>
                             </select>
-                            <button id="inv-sell-all-common" class="mini-btn danger">일반/고급 일괄분해</button>
+                            <button id="inv-sell-unlocked-btn" class="mini-btn danger" title="잠금(🔒)되지 않은 모든 무기를 일괄 판매합니다.">
+                                💰 잠금 외 모두 판매
+                            </button>
                         </div>
                     </div>
                     <div class="equipped-slot-card" id="equipped-slot-view">

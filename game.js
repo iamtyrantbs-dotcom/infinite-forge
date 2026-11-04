@@ -65,7 +65,7 @@
         settings: {
             autoHammer: false,
             sound: true,
-            fastCutscene: false
+            showCutscene: true // 팝업 컷신 선택 보기 (기본 ON)
         },
 
         // 스마트 자동 분류 필터 (Auto-Filter)
@@ -321,8 +321,8 @@
             state.bestWeaponPower = currentPwr;
         }
 
-        // 6. 고티어 전설 컷신 연출
-        if (selectedWeapon.cutscene || selectedWeapon.tier === 'Legendary' || selectedWeapon.tier === 'Mythic' || selectedWeapon.tier === 'Godly') {
+        // 6. 고티어 전설 컷신 연출 (설정에서 팝업이 켜져 있을 때만 발동)
+        if (state.settings.showCutscene && (selectedWeapon.cutscene || selectedWeapon.tier === 'Legendary' || selectedWeapon.tier === 'Mythic' || selectedWeapon.tier === 'Godly')) {
             triggerCinematicCutscene(selectedWeapon, state.currentEnhancement);
         }
 
@@ -584,7 +584,10 @@
         }
 
         state.inventory.splice(index, 1);
-        showToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(price)} 골드)`, 'info');
+        showToast(`💰 [${wDef.name}] 판매 완료! (+${formatNumber(price)} 골드)`, 'info');
+
+        // 판매 즉시 인벤토리 뷰 갱신하여 화면에서 사라지게 처리
+        renderInventoryList();
         updateUI();
         autoSave();
     }
@@ -593,33 +596,35 @@
         const item = state.inventory.find(i => i.uid === uid);
         if (!item) return;
         item.locked = !item.locked;
+        renderInventoryList();
         updateUI();
         autoSave();
     }
 
-    function salvageAllCommonItems() {
-        const commonItems = state.inventory.filter(i => {
-            const def = window.WEAPONS_DATABASE.find(w => w.id === i.id);
-            return def && (def.tier === 'Common' || def.tier === 'Uncommon') && !i.locked && i.uid !== state.equippedWeaponUid;
-        });
+    // 잠금된 장비 이외의 모든 무기 일괄 판매 (신규 기능)
+    function salvageAllUnlockedItems() {
+        const unlockedItems = state.inventory.filter(i => !i.locked && i.uid !== state.equippedWeaponUid);
 
-        if (commonItems.length === 0) {
-            showToast('분해할 수 있는 일반/고급 등급의 무기가 없습니다.', 'info');
+        if (unlockedItems.length === 0) {
+            showToast('판매할 수 있는 잠금 해제 무기가 없습니다. (대표 무기 및 🔒 잠금 무기 제외)', 'info');
             return;
         }
 
         let totalGold = 0;
-        commonItems.forEach(item => {
+        unlockedItems.forEach(item => {
             const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
             const rDef = getRuneDef(item.runeId);
             totalGold += computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
-            const idx = state.inventory.findIndex(x => x.uid === item.uid);
-            if (idx !== -1) state.inventory.splice(idx, 1);
         });
 
+        // 잠금된 무기 및 대표 무기만 보존
+        state.inventory = state.inventory.filter(i => i.locked || i.uid === state.equippedWeaponUid);
         state.gold += totalGold;
+        state.totalSalvages += unlockedItems.length;
         window.SoundFX.playCoinSound();
-        showToast(`💰 일반/고급 무기 ${commonItems.length}개 일괄 분해 (+${formatNumber(totalGold)} 골드)`, 'success');
+
+        showToast(`💰 잠금 외 무기 ${unlockedItems.length}개 일괄 판매 완료! (+${formatNumber(totalGold)} 골드)`, 'success');
+        renderInventoryList();
         updateUI();
         autoSave();
     }
@@ -812,6 +817,7 @@
     }
 
     function triggerRuneCutscene(rune) {
+        if (!state.settings.showCutscene) return;
         const overlay = document.getElementById('cutscene-overlay');
         const titleEl = document.getElementById('cs-weapon-name');
         const rarityEl = document.getElementById('cs-weapon-rarity');
@@ -1070,16 +1076,48 @@
                 const slot = document.createElement('div');
                 slot.className = `inv-slot ${isEquipped ? 'equipped' : ''}`;
                 slot.style.borderColor = rDef ? rDef.color : (wDef ? wDef.color : '#fff');
+                const price = computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
+
                 slot.innerHTML = `
                     <div class="inv-icon">${wDef ? wDef.icon : '🗡️'}</div>
                     <div class="inv-name" style="color:${rDef ? rDef.color : (wDef ? wDef.color : '#fff')}">
                         ${item.enhancement > 0 ? `+${item.enhancement} ` : ''}${wDef ? wDef.name : 'Unknown'}
                     </div>
                     <div class="inv-power">⚡ ${formatNumber(item.power)}</div>
-                    ${item.locked ? '<span style="font-size:0.7rem; color:#ffcc00; margin-top:2px;">🔒</span>' : ''}
+                    <div class="inv-slot-actions">
+                        <button class="inv-action-btn lock ${item.locked ? 'is-locked' : ''}" title="${item.locked ? '잠금 해제' : '잠금'}">
+                            ${item.locked ? '🔒' : '🔓'}
+                        </button>
+                        <button class="inv-action-btn sell" title="즉시 분해 (+${formatNumber(price)} 🪙)" ${item.locked ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''}>
+                            💰 판매
+                        </button>
+                    </div>
                 `;
 
-                slot.addEventListener('click', () => showItemModal(item.uid));
+                // 슬롯 자체를 누르면 상세 모달 표시 (버튼 제외)
+                slot.addEventListener('click', (e) => {
+                    if (e.target.closest('.inv-action-btn')) return;
+                    showItemModal(item.uid);
+                });
+
+                // 잠금 토글 버튼 이벤트
+                const lockBtn = slot.querySelector('.inv-action-btn.lock');
+                if (lockBtn) {
+                    lockBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleLockInventoryItem(item.uid);
+                    });
+                }
+
+                // 즉시 판매 버튼 이벤트
+                const sellBtn = slot.querySelector('.inv-action-btn.sell');
+                if (sellBtn && !item.locked) {
+                    sellBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        salvageInventoryItem(item.uid);
+                    });
+                }
+
                 grid.appendChild(slot);
             });
         }
@@ -1371,6 +1409,28 @@
         }
 
         // 7. 상단 헤더 컨트롤
+        const cutsceneToggleBtn = document.getElementById('toggle-cutscene-btn');
+        if (cutsceneToggleBtn) {
+            const updateCutsceneBtnUI = () => {
+                const textEl = document.getElementById('cutscene-status-text');
+                if (state.settings.showCutscene) {
+                    cutsceneToggleBtn.className = 'hud-pill-btn active';
+                    if (textEl) textEl.innerText = 'ON';
+                } else {
+                    cutsceneToggleBtn.className = 'hud-pill-btn muted';
+                    if (textEl) textEl.innerText = 'OFF';
+                }
+            };
+            updateCutsceneBtnUI();
+
+            cutsceneToggleBtn.addEventListener('click', () => {
+                state.settings.showCutscene = !state.settings.showCutscene;
+                updateCutsceneBtnUI();
+                showToast(state.settings.showCutscene ? '🎬 고등급 컷신 팝업을 표시합니다.' : '⚡ 컷신 팝업을 건너뛰고 빠른 제작 모드로 전환합니다.', 'info');
+                autoSave();
+            });
+        }
+
         const saveBtn = document.getElementById('save-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', () => {
@@ -1392,10 +1452,10 @@
             hardResetBtn.addEventListener('click', hardResetGame);
         }
 
-        // 8. 일괄 분해 버튼
-        const sellAllCommonBtn = document.getElementById('inv-sell-all-common');
-        if (sellAllCommonBtn) {
-            sellAllCommonBtn.addEventListener('click', salvageAllCommonItems);
+        // 8. 잠금 외 모두 판매 버튼
+        const sellUnlockedBtn = document.getElementById('inv-sell-unlocked-btn');
+        if (sellUnlockedBtn) {
+            sellUnlockedBtn.addEventListener('click', salvageAllUnlockedItems);
         }
 
         // 9. 탭 네비게이션
