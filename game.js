@@ -48,7 +48,12 @@
             qualityMastery: 0,
             enhancementLuck: 0,
             criticalStrike: 0,
-            ancientWhisper: 0
+            ancientWhisper: 0,
+            smithMastery: 0,
+            safetyForge: 0,
+            hyperCatalyst: 0,
+            doubleStrike: 0,
+            celestialBounty: 0
         },
 
         // 던전 원정대 해금 (id -> level/unlocked)
@@ -201,15 +206,22 @@
         return upgDef ? upgDef.effect(upgLvl) : 1.0;
     }
 
+    function getHyperCatalystMult() {
+        const upgLvl = state.upgrades.hyperCatalyst || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'hyperCatalyst');
+        return upgDef ? upgDef.effect(upgLvl) : 1.0;
+    }
+
     function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
         if (!weaponDef) return 10;
         const advBuffMult = getAdventureBuffMultiplier();
         const codexMult = getCodexBonusMultiplier();
+        const hyperMult = getHyperCatalystMult();
         const runeBoost = runeDef ? runeDef.boost : 1.0;
         const enhanceMult = 1 + (enhancement * 0.35); // 강화 1당 +35% 공격력 증가
         const qualityMult = quality / 100;
 
-        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult);
+        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult * hyperMult);
     }
 
     function computeWeaponSalvagePrice(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
@@ -261,6 +273,14 @@
             progressGain *= 3;
         }
 
+        // 신의 망치질 (더블 타격 업그레이드)
+        const dblUpgDef = window.UPGRADES_DATABASE.find(u => u.id === 'doubleStrike');
+        const dblChance = dblUpgDef ? dblUpgDef.effect(state.upgrades.doubleStrike || 0) : 0;
+        const isDoubleStrike = Math.random() < dblChance;
+        if (isDoubleStrike) {
+            progressGain *= 2;
+        }
+
         state.forgeProgress = Math.min(100, state.forgeProgress + progressGain);
 
         // 시각적 피드백 및 파티클
@@ -269,7 +289,10 @@
         const clickY = e ? e.clientY : btnRect.top + btnRect.height / 2;
 
         if (particlesInstance) {
-            if (isCritical) {
+            if (isDoubleStrike) {
+                particlesInstance.spawnCriticalSparks(clickX, clickY, '#00ffff');
+                particlesInstance.spawnFloatingText(clickX, clickY - 20, `DOUBLE STRIKE! +${progressGain}%`, '#00e5ff', '1.4rem');
+            } else if (isCritical) {
                 particlesInstance.spawnCriticalSparks(clickX, clickY, '#ffdd00');
                 particlesInstance.spawnFloatingText(clickX, clickY, `CRITICAL +${progressGain}%!`, '#ffea00', '1.6rem');
             } else {
@@ -281,9 +304,12 @@
         // 에테르 광석 드랍 체크
         const oreChance = getOreDropChance();
         if (Math.random() < oreChance) {
-            state.ore += 1;
+            const bountyDef = window.UPGRADES_DATABASE.find(u => u.id === 'celestialBounty');
+            const bountyMult = bountyDef ? bountyDef.effect(state.upgrades.celestialBounty || 0) : 1.0;
+            const oreGain = Math.random() < (bountyMult - 1) ? 2 : 1;
+            state.ore += oreGain;
             if (particlesInstance) {
-                particlesInstance.spawnFloatingText(clickX, clickY - 35, '+1 💎 에테르 광석', '#00e5ff', '1.1rem');
+                particlesInstance.spawnFloatingText(clickX, clickY - 35, `+${oreGain} 💎 에테르 광석`, '#00e5ff', '1.1rem');
             }
         }
 
@@ -843,8 +869,228 @@
     }
 
     // ------------------------------------------------------------------------
-    // 7. UPGRADES SYSTEM (FIXES CLICK NOT WORKING BUG)
+    // 6-1. BLACKSMITH ENHANCEMENT SYSTEM (대장장이 +20강 한계돌파)
     // ------------------------------------------------------------------------
+
+    // 강화 단계별 기본 확률표 (성공, 대성공, 유지, 하락, 파괴/초기화)
+    function getEnhanceOdds(currentLvl) {
+        let success = 0.70;
+        let great = 0.05;
+        let maintain = 0.25;
+        let down = 0.00;
+        let broken = 0.00;
+
+        if (currentLvl === 0) {
+            success = 0.90; great = 0.10; maintain = 0.00; down = 0.00; broken = 0.00;
+        } else if (currentLvl <= 3) {
+            success = 0.80; great = 0.08; maintain = 0.12; down = 0.00; broken = 0.00;
+        } else if (currentLvl <= 6) {
+            success = 0.65; great = 0.06; maintain = 0.25; down = 0.04; broken = 0.00;
+        } else if (currentLvl <= 9) {
+            success = 0.50; great = 0.05; maintain = 0.30; down = 0.12; broken = 0.03;
+        } else if (currentLvl <= 12) {
+            success = 0.38; great = 0.04; maintain = 0.32; down = 0.20; broken = 0.06;
+        } else if (currentLvl <= 15) {
+            success = 0.25; great = 0.03; maintain = 0.35; down = 0.27; broken = 0.10;
+        } else if (currentLvl <= 18) {
+            success = 0.15; great = 0.02; maintain = 0.35; down = 0.33; broken = 0.15;
+        } else { // 19강 -> 20강 극악 난이도
+            success = 0.08; great = 0.01; maintain = 0.35; down = 0.36; broken = 0.20;
+        }
+
+        // 업그레이드 보너스 적용
+        const masterDef = window.UPGRADES_DATABASE.find(u => u.id === 'smithMastery');
+        const bonusSuccess = masterDef ? masterDef.effect(state.upgrades.smithMastery || 0) : 0;
+        success += bonusSuccess;
+
+        const safetyDef = window.UPGRADES_DATABASE.find(u => u.id === 'safetyForge');
+        const reduceBroken = safetyDef ? safetyDef.effect(state.upgrades.safetyForge || 0) : 0;
+        broken = Math.max(0, broken - reduceBroken);
+
+        // 합계 100% 정규화
+        const sum = success + great + maintain + down + broken;
+        return {
+            success: success / sum,
+            great: great / sum,
+            maintain: maintain / sum,
+            down: down / sum,
+            broken: broken / sum
+        };
+    }
+
+    function getEnhanceCost(currentLvl) {
+        // 골드 & 광석 소모량 계산
+        const gold = Math.floor(150 * Math.pow(1.48, currentLvl));
+        const ore = Math.max(2, Math.floor(2 + (currentLvl * 1.5)));
+        return { gold, ore };
+    }
+
+    function renderBlacksmithSelector() {
+        const selector = document.getElementById('smith-target-select');
+        if (!selector) return;
+
+        const currentVal = selector.value;
+        selector.innerHTML = '';
+
+        if (state.inventory.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.innerText = '⚠️ 인벤토리에 보관된 무기가 없습니다.';
+            selector.appendChild(opt);
+            updateBlacksmithUI();
+            return;
+        }
+
+        state.inventory.forEach(item => {
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+            const rDef = getRuneDef(item.runeId);
+            const isEquipped = state.equippedWeaponUid === item.uid;
+
+            const opt = document.createElement('option');
+            opt.value = item.uid;
+            opt.innerText = `[+${item.enhancement}] ${wDef ? wDef.name : 'Unknown'} ${rDef ? `(${rDef.name})` : ''} ⚡${formatNumber(item.power)} ${isEquipped ? '★대표장착' : ''} ${item.locked ? '🔒' : ''}`;
+            selector.appendChild(opt);
+        });
+
+        if (currentVal && [...selector.options].some(o => o.value === currentVal)) {
+            selector.value = currentVal;
+        } else if (state.inventory.length > 0) {
+            selector.value = state.inventory[0].uid;
+        }
+
+        updateBlacksmithUI();
+    }
+
+    function updateBlacksmithUI() {
+        const selector = document.getElementById('smith-target-select');
+        const uid = selector ? selector.value : null;
+        const item = state.inventory.find(i => i.uid === uid);
+
+        const titleEl = document.getElementById('smith-weapon-title');
+        const iconEl = document.getElementById('smith-weapon-icon');
+        const currEnhEl = document.getElementById('smith-current-enhance');
+        const nextEnhEl = document.getElementById('smith-next-enhance');
+        const pwrEl = document.getElementById('smith-weapon-power');
+        const btn = document.getElementById('smith-enhance-btn');
+
+        if (!item) {
+            if (titleEl) titleEl.innerText = '선택된 무기 없음';
+            if (iconEl) iconEl.innerText = '❓';
+            if (currEnhEl) currEnhEl.innerText = '+0';
+            if (nextEnhEl) nextEnhEl.innerText = '+1';
+            if (pwrEl) pwrEl.innerText = '0';
+            if (btn) btn.disabled = true;
+            return;
+        }
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+
+        if (titleEl) {
+            titleEl.innerText = `${rDef ? `${rDef.prefix} ` : ''}${wDef ? wDef.name : '무기'}`;
+            titleEl.style.color = rDef ? rDef.color : (wDef ? wDef.color : '#fff');
+        }
+        if (iconEl) iconEl.innerText = wDef ? wDef.icon : '🗡️';
+        if (currEnhEl) currEnhEl.innerText = `+${item.enhancement}`;
+        if (pwrEl) pwrEl.innerText = formatNumber(item.power);
+
+        const isMax = item.enhancement >= 20;
+        if (nextEnhEl) nextEnhEl.innerText = isMax ? 'MAX (+20)' : `+${item.enhancement + 1}`;
+
+        const odds = getEnhanceOdds(item.enhancement);
+        document.getElementById('smith-prob-success').innerText = `${Math.round(odds.success * 100)}%`;
+        document.getElementById('smith-prob-great').innerText = `${Math.round(odds.great * 100)}%`;
+        document.getElementById('smith-prob-maintain').innerText = `${Math.round(odds.maintain * 100)}%`;
+        document.getElementById('smith-prob-down').innerText = `${Math.round(odds.down * 100)}%`;
+        document.getElementById('smith-prob-destroy').innerText = `${Math.round(odds.broken * 100)}%`;
+
+        const cost = getEnhanceCost(item.enhancement);
+        document.getElementById('smith-cost-gold').innerText = formatNumber(cost.gold);
+        document.getElementById('smith-cost-ore').innerText = formatNumber(cost.ore);
+
+        if (btn) {
+            if (isMax) {
+                btn.disabled = true;
+                btn.innerText = '🏆 이미 최고 강화 단계 (+20)에 도달했습니다!';
+            } else {
+                const canAfford = state.gold >= cost.gold && state.ore >= cost.ore;
+                btn.disabled = !canAfford;
+                btn.innerText = `🔥 강화 망치질 시작 (+${item.enhancement + 1} 도전) [${formatNumber(cost.gold)}🪙 / ${cost.ore}💎]`;
+            }
+        }
+    }
+
+    function executeBlacksmithEnhance() {
+        const selector = document.getElementById('smith-target-select');
+        const uid = selector ? selector.value : null;
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item || item.enhancement >= 20) return;
+
+        const cost = getEnhanceCost(item.enhancement);
+        if (state.gold < cost.gold || state.ore < cost.ore) {
+            showToast('⚠️ 재화가 부족합니다! (골드 또는 에테르 광석 확인)', 'warning');
+            return;
+        }
+
+        state.gold -= cost.gold;
+        state.ore -= cost.ore;
+
+        const odds = getEnhanceOdds(item.enhancement);
+        const roll = Math.random();
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+        const prevEnh = item.enhancement;
+
+        let resultType = 'fail';
+
+        if (roll < odds.success) {
+            // 성공 (+1)
+            item.enhancement += 1;
+            resultType = 'success';
+        } else if (roll < odds.success + odds.great) {
+            // 대성공 (+2)
+            item.enhancement = Math.min(20, item.enhancement + 2);
+            resultType = 'great';
+        } else if (roll < odds.success + odds.great + odds.maintain) {
+            // 유지
+            resultType = 'maintain';
+        } else if (roll < odds.success + odds.great + odds.maintain + odds.down) {
+            // 하락 (-1)
+            item.enhancement = Math.max(0, item.enhancement - 1);
+            resultType = 'down';
+        } else {
+            // 초기화 / 박살 (0으로 초기화)
+            item.enhancement = 0;
+            resultType = 'broken';
+        }
+
+        // 새 스탯 및 파워 갱신
+        item.power = computeWeaponItemPower(wDef, item.enhancement, item.quality, rDef);
+
+        // 연출 및 사운드 피드백
+        if (resultType === 'great') {
+            window.SoundFX.playLegendaryFanfare();
+            showToast(`🌟 대성공!! 운명의 불꽃이 폭발하여 [+${item.enhancement}] 2단계 급상승!`, 'success');
+        } else if (resultType === 'success') {
+            window.SoundFX.playBuySound();
+            showToast(`✨ 강화 성공! [+${prevEnh}] ➔ [+${item.enhancement}] 도달!`, 'success');
+        } else if (resultType === 'maintain') {
+            window.SoundFX.playAnvilHit(false);
+            showToast(`🛡️ 강화 실패! 단계가 안전하게 유지되었습니다. (+${item.enhancement})`, 'info');
+        } else if (resultType === 'down') {
+            window.SoundFX.playAnvilHit(true);
+            showToast(`⚠️ 강화 실패로 등급이 미끄러졌습니다... (+${item.enhancement})`, 'warning');
+        } else if (resultType === 'broken') {
+            window.SoundFX.playAnvilHit(true);
+            showToast(`💥 대장장이의 실수로 모루가 폭발했습니다! 강화 단계가 [+0]으로 초기화되었습니다!`, 'danger');
+        }
+
+        renderBlacksmithSelector();
+        renderInventoryList();
+        renderRuneTargetSelector();
+        updateUI();
+        autoSave();
+    }
 
     function buyUpgrade(upgradeId) {
         const def = window.UPGRADES_DATABASE.find(u => u.id === upgradeId);
@@ -1584,6 +1830,9 @@
 
         // 7. Dungeons Button State
         updateDungeonButtonsState();
+
+        // 8. Blacksmith UI State (실시간 재화 상태 및 버튼 갱신)
+        updateBlacksmithUI();
     }
 
     // ------------------------------------------------------------------------
@@ -2114,6 +2363,7 @@
 
                 // 탭 전환 시 필요한 목록 즉시 최신화
                 if (targetId === 'tab-upgrades') renderUpgradesList();
+                if (targetId === 'tab-blacksmith') renderBlacksmithSelector();
                 if (targetId === 'tab-inventory') renderInventoryList();
                 if (targetId === 'tab-codex') renderCodexList();
                 if (targetId === 'tab-runes') renderRuneTargetSelector();
@@ -2150,10 +2400,21 @@
 
         // 9-3. 최초 업그레이드, 인벤토리, 도감, 던전 UI 빌드
         renderUpgradesList();
+        renderBlacksmithSelector();
         renderInventoryList();
         renderCodexList();
         renderDungeonsList();
         renderRuneTargetSelector();
+
+        // 9-3-1. 대장장이 셀렉터 및 강화 실행 버튼 바인딩
+        const smithSel = document.getElementById('smith-target-select');
+        if (smithSel) {
+            smithSel.addEventListener('change', updateBlacksmithUI);
+        }
+        const smithBtn = document.getElementById('smith-enhance-btn');
+        if (smithBtn) {
+            smithBtn.addEventListener('click', executeBlacksmithEnhance);
+        }
 
         // 9-4. 룬 각인 대상 무기 셀렉터 변경 시 프리뷰 즉시 업데이트
         const runeTargetSel = document.getElementById('rune-target-select');

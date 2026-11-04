@@ -237,6 +237,7 @@
             <aside class="panel-section">
                 <nav class="tabs-nav">
                     <button class="tab-btn active" data-tab="tab-upgrades">⚒️ 대장간 강화</button>
+                    <button class="tab-btn" data-tab="tab-blacksmith">🔥 대장장이 (+20강)</button>
                     <button class="tab-btn" data-tab="tab-inventory">🎒 인벤토리 (<span id="inv-count-badge">0/30</span>)</button>
                     <button class="tab-btn" data-tab="tab-codex">📖 무기 도감 (<span id="codex-count-badge">0/32</span>)</button>
                     <button class="tab-btn" data-tab="tab-runes">🔮 룬 인챈트</button>
@@ -251,6 +252,81 @@
                         <p>타격 파워, 자동 풀무질, 희귀 광석 채굴 확률을 영구적으로 강화합니다.</p>
                     </div>
                     <div id="upgrades-list" class="cards-list"></div>
+                </div>
+
+                <!-- 1-2. 대장장이 강화 탭 (신규: 골드 & ORE 소모 +20강 도전) -->
+                <div id="tab-blacksmith" class="tab-content">
+                    <div class="tab-header flex-header">
+                        <div>
+                            <h3 style="color:#f97316;">전설의 대장장이 화로 (Blacksmith Forge)</h3>
+                            <p>골드와 에테르 광석을 소모해 선택한 장비의 강화 단계를 최대 <b>+20</b>까지 한계돌파합니다!</p>
+                        </div>
+                    </div>
+
+                    <!-- 강화 대상 장비 선택 카드 -->
+                    <div class="blacksmith-selector-card">
+                        <label for="smith-target-select" class="selector-label">🎯 강화할 무기 선택 (인벤토리):</label>
+                        <select id="smith-target-select" class="filter-select">
+                            <option value="">보관함에서 무기를 선택하세요</option>
+                        </select>
+                    </div>
+
+                    <!-- 대장장이 강화 제단 UI -->
+                    <div class="blacksmith-forge-card" id="blacksmith-forge-card">
+                        <div class="smith-target-preview">
+                            <span class="smith-icon" id="smith-weapon-icon">🗡️</span>
+                            <div class="smith-details">
+                                <h3 class="smith-title" id="smith-weapon-title">선택된 무기 없음</h3>
+                                <div class="smith-stats-line">
+                                    <span>현재 강화: <b id="smith-current-enhance" style="color:var(--accent-gold);">+0</b></span>
+                                    <span>목표 강화: <b id="smith-next-enhance" style="color:var(--accent-cyan);">+1</b></span>
+                                    <span>공격력: <b id="smith-weapon-power">0</b></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 확률 및 비용 테이블 -->
+                        <div class="smith-prob-grid">
+                            <div class="prob-card success">
+                                <span class="prob-title">성공 (+1)</span>
+                                <b class="prob-val" id="smith-prob-success">70%</b>
+                            </div>
+                            <div class="prob-card great">
+                                <span class="prob-title">대성공 (+2)</span>
+                                <b class="prob-val" id="smith-prob-great">5%</b>
+                            </div>
+                            <div class="prob-card fail">
+                                <span class="prob-title">실패 (유지)</span>
+                                <b class="prob-val" id="smith-prob-maintain">15%</b>
+                            </div>
+                            <div class="prob-card down">
+                                <span class="prob-title">하락 (-1)</span>
+                                <b class="prob-val" id="smith-prob-down">8%</b>
+                            </div>
+                            <div class="prob-card broken">
+                                <span class="prob-title">초기화 (➔ +0)</span>
+                                <b class="prob-val" id="smith-prob-destroy">2%</b>
+                            </div>
+                        </div>
+
+                        <!-- 소모 비용 안내 -->
+                        <div class="smith-cost-row">
+                            <span>소모 골드: <b id="smith-cost-gold" style="color:#ffd700;">1,000</b> 🪙</span>
+                            <span>소모 광석: <b id="smith-cost-ore" style="color:#00e5ff;">10</b> 💎</span>
+                        </div>
+
+                        <!-- 강화 실행 버튼 -->
+                        <button id="smith-enhance-btn" class="smith-execute-btn" disabled>
+                            🔥 강화 망치질 시작 (+1 도전)
+                        </button>
+                    </div>
+
+                    <!-- 강화 경고 및 팁 안내 -->
+                    <div class="smith-warning-box">
+                        ⚠️ <b>대장장이의 경고:</b><br>
+                        • <b>+10강 이상</b>부터는 실패 시 강화 단계가 내려가거나 운이 매우 나쁘면 <b>+0으로 박살</b>날 수 있습니다.<br>
+                        • 시설 업그레이드의 <b>[신성 대장장이의 담금질]</b>과 <b>[불멸의 방호 모루]</b>를 올리면 성공 확률이 오르고 초기화 위험을 크게 줄일 수 있습니다.
+                    </div>
                 </div>
 
                 <!-- 2. 인벤토리 탭 (신규) -->

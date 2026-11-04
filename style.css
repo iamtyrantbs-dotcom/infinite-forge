@@ -816,6 +816,137 @@ body {
     border-color: #555;
 }
 
+/* ---------------- BLACKSMITH TAB STYLES ---------------- */
+.blacksmith-selector-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.blacksmith-forge-card {
+    background: radial-gradient(circle at 50% 0%, rgba(249, 115, 22, 0.15) 0%, rgba(10, 15, 29, 0.85) 70%);
+    border: 1px solid rgba(249, 115, 22, 0.4);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+}
+
+.smith-target-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 16px;
+}
+
+.smith-target-preview .smith-icon {
+    font-size: 2.8rem;
+}
+
+.smith-details .smith-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.smith-stats-line {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.smith-prob-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.prob-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 4px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.prob-card .prob-title {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}
+
+.prob-card .prob-val {
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.prob-card.success .prob-val { color: #22c55e; }
+.prob-card.great .prob-val { color: #00e5ff; }
+.prob-card.maintain .prob-val { color: #94a3b8; }
+.prob-card.down .prob-val { color: #f59e0b; }
+.prob-card.broken .prob-val { color: #ef4444; }
+
+.smith-cost-row {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-around;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.smith-execute-btn {
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    border: 1px solid #fb923c;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+    text-align: center;
+}
+
+.smith-execute-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(249, 115, 22, 0.7);
+}
+
+.smith-execute-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: #555;
+    background: #334155;
+    box-shadow: none;
+}
+
+.smith-warning-box {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.74rem;
+    color: #fca5a5;
+    line-height: 1.5;
+}
+
 /* ---------------- INVENTORY GRID & SLOTS ---------------- */
 .inv-filter-controls {
     display: flex;

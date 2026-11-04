@@ -451,6 +451,52 @@ const UPGRADES_DATABASE = [
         costMul: 1.55,
         maxLevel: 15,
         effect: (lvl) => 1 + (lvl * 0.10)
+    },
+    // --- 신규 상위 업그레이드 5종 (High-tier Expansion) ---
+    {
+        id: 'smithMastery',
+        title: '신성 대장장이의 담금질',
+        desc: '대장장이 탭에서 무기 강화 성공 확률을 레벨당 +1% 상승시킵니다. (최대 +10%)',
+        baseCost: 15000,
+        costMul: 1.60,
+        maxLevel: 10,
+        effect: (lvl) => lvl * 0.01
+    },
+    {
+        id: 'safetyForge',
+        title: '불멸의 방호 모루',
+        desc: '대장장이 강화 실패 시 강화 단계가 0으로 초기화(파괴)될 확률을 레벨당 -2% 감소시킵니다.',
+        baseCost: 28000,
+        costMul: 1.62,
+        maxLevel: 10,
+        effect: (lvl) => lvl * 0.02
+    },
+    {
+        id: 'hyperCatalyst',
+        title: '하이퍼 에테르 촉매',
+        desc: '모든 장비의 최종 공격력(Power)을 레벨당 영구 +6% 증폭시킵니다.',
+        baseCost: 65000,
+        costMul: 1.65,
+        maxLevel: 15,
+        effect: (lvl) => 1 + (lvl * 0.06)
+    },
+    {
+        id: 'doubleStrike',
+        title: '신의 망치질 (더블 타격)',
+        desc: '모루 타격 시 레벨당 2.5% 확률로 1타에 2회의 타격 판정이 발생합니다.',
+        baseCost: 150000,
+        costMul: 1.70,
+        maxLevel: 12,
+        effect: (lvl) => Math.min(0.30, lvl * 0.025)
+    },
+    {
+        id: 'celestialBounty',
+        title: '천상계의 에테르 축복',
+        desc: '모든 경로(모루, 원정대, 모험)에서 얻는 에테르 광석(ORE) 획득량을 레벨당 +15% 증폭합니다.',
+        baseCost: 350000,
+        costMul: 1.75,
+        maxLevel: 10,
+        effect: (lvl) => 1 + (lvl * 0.15)
     }
 ];
 
