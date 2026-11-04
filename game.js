@@ -1367,10 +1367,9 @@
         showToast(`⚔️ [${stageDef.name}] 모험 전투 개시!`, 'info');
 
         // 포커스 및 루프 가동
-        const canvas = document.getElementById('adventure-canvas');
-        if (canvas) {
-            canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            canvas.focus();
+        const arena = document.getElementById('adv-arena-wrapper');
+        if (arena) {
+            arena.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         if (document.activeElement && typeof document.activeElement.blur === 'function') {
             document.activeElement.blur();
