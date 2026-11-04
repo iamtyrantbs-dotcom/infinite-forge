@@ -96,8 +96,11 @@
 
             <!-- 세이브 & 컨트롤 버튼 -->
             <div class="header-controls">
+                <button id="toggle-craft-toast-btn" class="hud-pill-btn active" title="장비 획득/제련 완료 알림 팝업 토글">
+                    🔔 획득 알림: <b id="craft-toast-status-text">ON</b>
+                </button>
                 <button id="toggle-cutscene-btn" class="hud-pill-btn active" title="고등급 컷신 팝업 보기 / 건너뛰기">
-                    🎬 팝업 연출: <b id="cutscene-status-text">ON</b>
+                    🎬 컷신: <b id="cutscene-status-text">ON</b>
                 </button>
                 <button id="save-btn" class="hud-icon-btn" title="진행상황 저장">💾</button>
                 <button id="sound-btn" class="hud-icon-btn" title="사운드 토글">🔊</button>
@@ -296,8 +299,17 @@
                 <div id="tab-runes" class="tab-content">
                     <div class="tab-header">
                         <h3>고대 룬 제단 (Rune Altar)</h3>
-                        <p>에테르 광석을 소모하여 현재 무기에 강력한 접두사 룬을 무작위로 각인합니다.</p>
+                        <p>인벤토리의 보관 무기 또는 모루 작업대 무기를 선택하여 강력한 고대 룬을 각인합니다.</p>
                     </div>
+
+                    <!-- 각인 대상 무기 선택 셀렉터 -->
+                    <div class="rune-target-selector-card">
+                        <label for="rune-target-select" class="selector-label">🎯 각인할 대상 무기 선택:</label>
+                        <select id="rune-target-select" class="filter-select">
+                            <option value="current">🔨 현재 모루 작업대 무기</option>
+                        </select>
+                    </div>
+
                     <div class="rune-altar-card">
                         <div class="altar-preview">
                             <span class="rune-icon" id="rune-roll-icon">✨</span>

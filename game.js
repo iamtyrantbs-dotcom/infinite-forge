@@ -65,7 +65,8 @@
         settings: {
             autoHammer: false,
             sound: true,
-            showCutscene: true // 팝업 컷신 선택 보기 (기본 ON)
+            showCutscene: true, // 팝업 컷신 선택 보기 (기본 ON)
+            showCraftToast: true // 장비 획득/제련 완료 알림 팝업 토글 (기본 ON)
         },
 
         // 스마트 자동 분류 필터 (Auto-Filter)
@@ -112,6 +113,11 @@
             toast.style.opacity = '0';
             setTimeout(() => toast.remove(), 400);
         }, 3000);
+    }
+
+    function showCraftToast(message, type = 'success') {
+        if (!state.settings.showCraftToast) return;
+        showToast(message, type);
     }
 
     // ------------------------------------------------------------------------
@@ -326,7 +332,7 @@
             triggerCinematicCutscene(selectedWeapon, state.currentEnhancement);
         }
 
-        showToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
+        showCraftToast(`🎉 [${selectedWeapon.tier}] ${selectedWeapon.name} 제련 완료!`, 'success');
         autoSave();
 
         // 7. 스마트 자동 분류 (Auto-Filter) 판정 및 즉시 처리
@@ -362,14 +368,14 @@
         if (meetsAllCriteria) {
             // 기준 이상: 인벤토리에 자동 보관 시도
             if (state.inventory.length >= state.maxInventorySlots) {
-                showToast(`⚠️ [자동 보관 실패] 인벤토리가 가득 차 작업대에 보관되었습니다!`, 'warning');
+                showCraftToast(`⚠️ [자동 보관 실패] 인벤토리가 가득 차 작업대에 보관되었습니다!`, 'warning');
             } else {
-                showToast(`🛡️ [자동 보관] 기준 충족: ${weaponDef.name} (+${state.currentEnhancement}, ${state.currentQuality}%)`, 'success');
+                showCraftToast(`🛡️ [자동 보관] 기준 충족: ${weaponDef.name} (+${state.currentEnhancement}, ${state.currentQuality}%)`, 'success');
                 claimCurrentWeaponToInventory();
             }
         } else {
             // 기준 미달: 자동 분해(판매)
-            showToast(`♻️ [자동 분해] 필터 미달 무기를 골드로 환전했습니다.`, 'info');
+            showCraftToast(`♻️ [자동 분해] 필터 미달 무기를 골드로 환전했습니다.`, 'info');
             salvageCurrentWeapon();
         }
     }
@@ -507,7 +513,7 @@
             state.equippedWeaponUid = newWeaponItem.uid;
         }
 
-        showToast(`🎒 [${wDef.name} +${state.currentEnhancement}] 보관함에 저장되었습니다!`, 'success');
+        showCraftToast(`🎒 [${wDef.name} +${state.currentEnhancement}] 보관함에 저장되었습니다!`, 'success');
         window.SoundFX.playBuySound();
 
         // 작업대 상태 리셋 (새 무기 제작 준비)
@@ -630,7 +636,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // 6. RUNE INSCRIPTION SYSTEM
+    // 6. RUNE INSCRIPTION SYSTEM (인벤토리 장비 선택 각인 지원)
     // ------------------------------------------------------------------------
 
     function rollRune() {
@@ -639,6 +645,9 @@
             showToast(`⚠️ 에테르 광석이 부족합니다! (${cost}개 필요)`, 'warning');
             return;
         }
+
+        const selector = document.getElementById('rune-target-select');
+        const targetVal = selector ? selector.value : 'current';
 
         state.ore -= cost;
         window.SoundFX.init();
@@ -656,7 +665,27 @@
             rollVal -= r.weight;
         }
 
-        state.activeRuneId = selectedRune.id;
+        let targetWeaponName = '';
+
+        if (targetVal === 'current') {
+            state.activeRuneId = selectedRune.id;
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+            targetWeaponName = `작업대 무기 (${wDef ? wDef.name : ''})`;
+        } else {
+            // 인벤토리 무기에 직접 각인
+            const invItem = state.inventory.find(i => i.uid === targetVal);
+            if (invItem) {
+                invItem.runeId = selectedRune.id;
+                const wDef = window.WEAPONS_DATABASE.find(w => w.id === invItem.id);
+                // 각인된 룬 반영하여 공격력 재계산
+                invItem.power = computeWeaponItemPower(wDef, invItem.enhancement, invItem.quality, selectedRune);
+                targetWeaponName = `${wDef ? wDef.name : ''} +${invItem.enhancement}`;
+            } else {
+                state.activeRuneId = selectedRune.id;
+                targetWeaponName = '모루 작업대 무기';
+            }
+        }
+
         window.SoundFX.playBuySound();
 
         if (particlesInstance) {
@@ -667,9 +696,47 @@
             triggerRuneCutscene(selectedRune);
         }
 
-        showToast(`🔮 고대 룬 [${selectedRune.name}] 각인 완료!`, 'success');
+        showToast(`🔮 [${targetWeaponName}]에 고대 룬 [${selectedRune.name}] 각인 완료!`, 'success');
+        renderInventoryList();
+        renderRuneTargetSelector();
         updateUI();
         autoSave();
+    }
+
+    // 인벤토리 무기 및 현재 작업대 무기를 룬 제단 셀렉터에 동기화
+    function renderRuneTargetSelector() {
+        const selector = document.getElementById('rune-target-select');
+        if (!selector) return;
+
+        const currentVal = selector.value || 'current';
+        selector.innerHTML = '';
+
+        // 1. 현재 모루 작업대 무기 옵션
+        const currDef = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+        const currRune = getRuneDef(state.activeRuneId);
+        const optCurr = document.createElement('option');
+        optCurr.value = 'current';
+        optCurr.innerText = `🔨 [현재 모루] ${currDef ? currDef.name : '무기'} ${currRune ? `(${currRune.name})` : '(룬 없음)'}`;
+        selector.appendChild(optCurr);
+
+        // 2. 인벤토리에 보관된 무기 목록 옵션
+        state.inventory.forEach(item => {
+            const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+            const rDef = getRuneDef(item.runeId);
+            const isEquipped = state.equippedWeaponUid === item.uid;
+
+            const opt = document.createElement('option');
+            opt.value = item.uid;
+            opt.innerText = `🎒 [보관함${isEquipped ? '★장착' : ''}] ${wDef ? wDef.name : 'Unknown'} +${item.enhancement} (⚡${formatNumber(item.power)}) ${rDef ? `[${rDef.name}]` : '[룬 없음]'}`;
+            selector.appendChild(opt);
+        });
+
+        // 기존 선택값 유지 시도
+        if ([...selector.options].some(o => o.value === currentVal)) {
+            selector.value = currentVal;
+        } else {
+            selector.value = 'current';
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -957,10 +1024,21 @@
         document.getElementById('salvage-gold-preview').innerText = formatNumber(salvagePrice);
 
         // 5. Rune altar preview
-        if (rDef) {
-            document.getElementById('active-rune-name').innerText = rDef.name;
-            document.getElementById('active-rune-name').style.color = rDef.color;
-            document.getElementById('active-rune-desc').innerText = rDef.desc;
+        const selector = document.getElementById('rune-target-select');
+        const selectedUid = selector ? selector.value : 'current';
+        let targetRuneDef = rDef;
+
+        if (selectedUid && selectedUid !== 'current') {
+            const targetItem = state.inventory.find(i => i.uid === selectedUid);
+            if (targetItem) {
+                targetRuneDef = getRuneDef(targetItem.runeId);
+            }
+        }
+
+        if (targetRuneDef) {
+            document.getElementById('active-rune-name').innerText = targetRuneDef.name;
+            document.getElementById('active-rune-name').style.color = targetRuneDef.color;
+            document.getElementById('active-rune-desc').innerText = targetRuneDef.desc;
         } else {
             document.getElementById('active-rune-name').innerText = '각인된 룬 없음';
             document.getElementById('active-rune-name').style.color = '#fff';
@@ -1409,6 +1487,28 @@
         }
 
         // 7. 상단 헤더 컨트롤
+        const craftToastToggleBtn = document.getElementById('toggle-craft-toast-btn');
+        if (craftToastToggleBtn) {
+            const updateToastBtnUI = () => {
+                const textEl = document.getElementById('craft-toast-status-text');
+                if (state.settings.showCraftToast) {
+                    craftToastToggleBtn.className = 'hud-pill-btn active';
+                    if (textEl) textEl.innerText = 'ON';
+                } else {
+                    craftToastToggleBtn.className = 'hud-pill-btn muted';
+                    if (textEl) textEl.innerText = 'OFF';
+                }
+            };
+            updateToastBtnUI();
+
+            craftToastToggleBtn.addEventListener('click', () => {
+                state.settings.showCraftToast = !state.settings.showCraftToast;
+                updateToastBtnUI();
+                showToast(state.settings.showCraftToast ? '🔔 장비 획득/제련 알림 팝업이 켜졌습니다.' : '🔕 장비 획득/제련 알림 팝업을 껐습니다. (조용히 플레이)', 'info');
+                autoSave();
+            });
+        }
+
         const cutsceneToggleBtn = document.getElementById('toggle-cutscene-btn');
         if (cutsceneToggleBtn) {
             const updateCutsceneBtnUI = () => {
@@ -1472,6 +1572,7 @@
                 if (targetId === 'tab-upgrades') renderUpgradesList();
                 if (targetId === 'tab-inventory') renderInventoryList();
                 if (targetId === 'tab-codex') renderCodexList();
+                if (targetId === 'tab-runes') renderRuneTargetSelector();
                 if (targetId === 'tab-expedition') renderDungeonsList();
             });
         });
@@ -1507,6 +1608,13 @@
         renderInventoryList();
         renderCodexList();
         renderDungeonsList();
+        renderRuneTargetSelector();
+
+        // 9-4. 룬 각인 대상 무기 셀렉터 변경 시 프리뷰 즉시 업데이트
+        const runeTargetSel = document.getElementById('rune-target-select');
+        if (runeTargetSel) {
+            runeTargetSel.addEventListener('change', updateUI);
+        }
 
         // 10. 인벤토리 정렬 필터 변경
         const sortSelect = document.getElementById('inv-sort-select');
