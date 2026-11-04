@@ -455,7 +455,7 @@ const UPGRADES_DATABASE = [
 ];
 
 // ============================================================================
-// DUNGEONS DATABASE (던전 원정대 시스템)
+// DUNGEONS DATABASE (던전 원정대 시스템 - ORE 획득량 대폭 너프 조정)
 // ============================================================================
 
 const DUNGEONS_DATABASE = [
@@ -465,9 +465,9 @@ const DUNGEONS_DATABASE = [
         engName: 'Goblin Cave',
         reqPower: 30,
         goldPerSec: 8,
-        orePerSec: 0.3,
+        orePerSec: 0.04,
         cost: 60,
-        desc: '약탈당한 광산에 숨어든 고블린 소탕. 초반 골드와 에테르 광석의 안정적인 보급처.'
+        desc: '약탈당한 광산에 숨어든 고블린 소탕. 초반 골드와 미량의 에테르 광석 보급처.'
     },
     {
         id: 'd_skeleton_crypt',
@@ -475,7 +475,7 @@ const DUNGEONS_DATABASE = [
         engName: 'Undead Crypt',
         reqPower: 180,
         goldPerSec: 35,
-        orePerSec: 0.9,
+        orePerSec: 0.12,
         cost: 350,
         desc: '죽은 병사들의 유골이 배회하는 폐허. 고대 철제 유물과 귀금속을 발굴합니다.'
     },
@@ -485,9 +485,9 @@ const DUNGEONS_DATABASE = [
         engName: 'Golem Sanctuary',
         reqPower: 900,
         goldPerSec: 180,
-        orePerSec: 2.8,
+        orePerSec: 0.35,
         cost: 2200,
-        desc: '거대한 마법 골렘들이 지키는 성역. 고밀도 에테르 원석이 대량 매장되어 있습니다.'
+        desc: '거대한 마법 골렘들이 지키는 성역. 에테르 광맥을 천천히 채굴합니다.'
     },
     {
         id: 'd_dragon_peak',
@@ -495,7 +495,7 @@ const DUNGEONS_DATABASE = [
         engName: 'Dragon Peak',
         reqPower: 6000,
         goldPerSec: 1200,
-        orePerSec: 12.0,
+        orePerSec: 1.20,
         cost: 18000,
         desc: '화염룡이 둥지를 튼 화산 봉우리. 드래곤의 보물창고에서 막대한 황금을 약탈합니다.'
     },
@@ -505,9 +505,9 @@ const DUNGEONS_DATABASE = [
         engName: 'Abyssal Rift',
         reqPower: 45000,
         goldPerSec: 9500,
-        orePerSec: 55.0,
+        orePerSec: 4.50,
         cost: 120000,
-        desc: '뒤틀린 차원의 틈새. 이세계의 물질과 천문학적인 에테르가 뿜어져 나옵니다.'
+        desc: '뒤틀린 차원의 틈새. 이세계의 물질과 정제된 에테르가 추출됩니다.'
     },
     {
         id: 'd_celestial_citadel',
@@ -515,7 +515,7 @@ const DUNGEONS_DATABASE = [
         engName: 'Celestial Citadel',
         reqPower: 350000,
         goldPerSec: 80000,
-        orePerSec: 280.0,
+        orePerSec: 15.00,
         cost: 950000,
         desc: '신화 속 신들이 기거하던 부유 성채. 상상을 초월하는 부와 신성한 에테르를 수확합니다.'
     }
