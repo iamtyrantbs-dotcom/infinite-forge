@@ -452,6 +452,15 @@ const UPGRADES_DATABASE = [
         maxLevel: 15,
         effect: (lvl) => 1 + (lvl * 0.10)
     },
+    {
+        id: 'celestialDestiny',
+        title: '천상의 운명 공명 (Divine Destiny)',
+        desc: '모든 등급의 상위 무기(Uncommon부터 Godly까지)가 등장할 확률 가중치를 레벨당 +20%씩 폭발적으로 증폭합니다.',
+        baseCost: 12000,
+        costMul: 1.50,
+        maxLevel: 25,
+        effect: (lvl) => 1 + (lvl * 0.20)
+    },
     // --- 신규 상위 업그레이드 5종 (High-tier Expansion) ---
     {
         id: 'smithMastery',

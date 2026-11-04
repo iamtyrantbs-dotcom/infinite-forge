@@ -49,6 +49,7 @@
             enhancementLuck: 0,
             criticalStrike: 0,
             ancientWhisper: 0,
+            celestialDestiny: 0,
             smithMastery: 0,
             safetyForge: 0,
             hyperCatalyst: 0,
@@ -206,6 +207,12 @@
         return upgDef ? upgDef.effect(upgLvl) : 1.0;
     }
 
+    function getCelestialDestinyMult() {
+        const upgLvl = state.upgrades.celestialDestiny || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'celestialDestiny');
+        return upgDef ? upgDef.effect(upgLvl) : 1.0;
+    }
+
     function getHyperCatalystMult() {
         const upgLvl = state.upgrades.hyperCatalyst || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'hyperCatalyst');
@@ -326,14 +333,20 @@
         state.totalWeaponsForged++;
         window.SoundFX.playCraftComplete();
 
-        // 1. 무기 추첨 (RNG Roll with Ancient Whisper Bonus)
+        // 1. 무기 추첨 (RNG Roll with Ancient Whisper & Celestial Destiny Bonus)
         const whisper = getAncientWhisperMult();
+        const destiny = getCelestialDestinyMult();
         const database = window.WEAPONS_DATABASE;
 
-        // 가중치 계산
+        // 가중치 계산 (더 좋은 등급일수록 업그레이드 보너스를 차등 곱연산 적용)
         let weightedPool = database.map(w => {
             let wWeight = w.weight;
+            if (w.tier !== 'Common') {
+                // 천상의 운명 공명: Uncommon 이상 모든 상위 등급의 등장 확률 증폭
+                wWeight *= destiny;
+            }
             if (w.tier !== 'Common' && w.tier !== 'Uncommon') {
+                // 고대 비전서: Rare 이상 고티어 추가 증폭
                 wWeight *= whisper;
             }
             return { item: w, weight: wWeight };
