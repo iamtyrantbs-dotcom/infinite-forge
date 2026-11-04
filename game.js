@@ -76,6 +76,13 @@
             minQuality: 100,
             minEnhance: 0,
             minPower: 0
+        },
+
+        // 실시간 모험 (RPG 모드) 진행 상태
+        adventure: {
+            currentStage: 1,
+            maxClearedStage: 0,
+            earnedBuffs: [] // [5, 10, 15...]
         }
     };
 
@@ -124,9 +131,16 @@
     // 3. CORE CALCULATIONS & MULTIPLIERS
     // ------------------------------------------------------------------------
 
-    function getFlameMultiplier() {
-        // 태초의 불꽃 1개당 +10% 글로벌 제작 배수
-        return 1 + (state.flame * 0.10);
+    function getAdventureBuffMultiplier() {
+        if (!state.adventure || !state.adventure.earnedBuffs) return 1.0;
+        let mult = 1.0;
+        // 5스테이지: +15%
+        if (state.adventure.earnedBuffs.includes(5)) mult += 0.15;
+        // 10스테이지: +30%
+        if (state.adventure.earnedBuffs.includes(10)) mult += 0.30;
+        // 15스테이지: +50%
+        if (state.adventure.earnedBuffs.includes(15)) mult += 0.50;
+        return mult;
     }
 
     function getCodexBonusMultiplier() {
@@ -139,14 +153,23 @@
         const base = 8;
         const upgLvl = state.upgrades.hammerPower || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'hammerPower');
-        const bonus = upgDef ? upgDef.effect(upgLvl) : 0;
+        let bonus = upgDef ? upgDef.effect(upgLvl) : 0;
+        // 5스테이지 클리어 버프: 제련 진행도 +2%
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(5)) {
+            bonus += 2;
+        }
         return Math.floor(base + bonus);
     }
 
     function getAnvilQualityBonus() {
         const upgLvl = state.upgrades.anvilQuality || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'anvilQuality');
-        return 1 + (upgDef ? upgDef.effect(upgLvl) : 0);
+        let bonus = upgDef ? upgDef.effect(upgLvl) : 0;
+        // 15스테이지 클리어 버프: 분해 가치 2배
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(15)) {
+            bonus += 1.0;
+        }
+        return 1 + bonus;
     }
 
     function getAutoBellowsInterval() {
@@ -158,7 +181,12 @@
     function getOreDropChance() {
         const upgLvl = state.upgrades.oreMagnet || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'oreMagnet');
-        return upgDef ? upgDef.effect(upgLvl) : 0;
+        let bonus = upgDef ? upgDef.effect(upgLvl) : 0;
+        // 15스테이지 클리어 버프: 에테르 수급 2배 (+20% 기본 드랍)
+        if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(15)) {
+            bonus += 0.20;
+        }
+        return bonus;
     }
 
     function getCriticalChance() {
@@ -175,13 +203,13 @@
 
     function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
         if (!weaponDef) return 10;
-        const flameMult = getFlameMultiplier();
+        const advBuffMult = getAdventureBuffMultiplier();
         const codexMult = getCodexBonusMultiplier();
         const runeBoost = runeDef ? runeDef.boost : 1.0;
         const enhanceMult = 1 + (enhancement * 0.35); // 강화 1당 +35% 공격력 증가
         const qualityMult = quality / 100;
 
-        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * flameMult * codexMult);
+        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult);
     }
 
     function computeWeaponSalvagePrice(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
@@ -701,6 +729,81 @@
         renderRuneTargetSelector();
         updateUI();
         autoSave();
+
+        return selectedRune;
+    }
+
+    // 룬 자동 인챈트 루프 제어 (지정 룬이 뜰 때까지 자동 시도)
+    let autoRuneTimer = null;
+    let isAutoRuneActive = false;
+
+    // 룬 티어 랭크 비교용
+    const RUNE_TIER_RANK = {
+        'r_spark': 1,
+        'r_stone': 2,
+        'r_ether': 3,
+        'r_thunder': 4,
+        'r_void': 5,
+        'r_genesis': 6,
+        'r_singularity': 7
+    };
+
+    function startAutoRune() {
+        const toggleBtn = document.getElementById('auto-rune-toggle-btn');
+        const targetSel = document.getElementById('auto-rune-target-tier');
+        if (!targetSel) return;
+
+        const targetRuneId = targetSel.value;
+        const targetRank = RUNE_TIER_RANK[targetRuneId] || 1;
+
+        if (state.ore < 50) {
+            showToast('⚠️ 에테르 광석이 부족하여 자동 각인을 시작할 수 없습니다. (최소 50개 필요)', 'warning');
+            return;
+        }
+
+        isAutoRuneActive = true;
+        if (toggleBtn) {
+            toggleBtn.innerText = '⏹️ 자동 각인 중지';
+            toggleBtn.className = 'mini-btn danger';
+        }
+
+        showToast(`⚡ 자동 룬 각인 시작! [목표 룬 도달 시 자동 정지]`, 'info');
+
+        function step() {
+            if (!isAutoRuneActive) return;
+
+            if (state.ore < 50) {
+                stopAutoRune();
+                showToast('⚠️ 에테르 광석이 모두 소진되어 자동 각인이 중단되었습니다.', 'warning');
+                return;
+            }
+
+            const rolled = rollRune();
+            const rolledRank = rolled ? (RUNE_TIER_RANK[rolled.id] || 0) : 0;
+
+            if (rolledRank >= targetRank) {
+                stopAutoRune();
+                showToast(`🎯 목표 달성! [${rolled.name}] 각인 성공으로 자동 인챈트를 종료합니다.`, 'success');
+                return;
+            }
+
+            autoRuneTimer = setTimeout(step, 160); // 0.16초 주기로 연속 각인
+        }
+
+        step();
+    }
+
+    function stopAutoRune() {
+        isAutoRuneActive = false;
+        if (autoRuneTimer) {
+            clearTimeout(autoRuneTimer);
+            autoRuneTimer = null;
+        }
+        const toggleBtn = document.getElementById('auto-rune-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.innerText = '⚡ 자동 각인 시작';
+            toggleBtn.className = 'mini-btn highlight';
+        }
     }
 
     // 인벤토리 무기 및 현재 작업대 무기를 룬 제단 셀렉터에 동기화
@@ -801,47 +904,475 @@
     }
 
     // ------------------------------------------------------------------------
-    // 9. ASCENSION (REBIRTH / PRESTIGE)
+    // 9. ADVENTURE MODE (ACTION RPG ENGINE - REPLACES ASCENSION)
     // ------------------------------------------------------------------------
 
-    function getPendingFlames() {
-        if (state.gold < 5000) return 0;
-        return Math.floor(Math.sqrt(state.gold / 5000));
+    let adventureBattleState = null;
+    let adventureAnimFrame = null;
+    const playerKeys = { w: false, a: false, s: false, d: false, space: false };
+
+    function selectAdventureStage(stageNum) {
+        const totalStages = window.STAGES_DATABASE.length;
+        const target = Math.max(1, Math.min(totalStages, stageNum));
+        state.adventure.currentStage = target;
+        renderAdventureStageUI();
     }
 
-    function triggerAscension() {
-        const pending = getPendingFlames();
-        if (pending <= 0) {
-            showToast('⚠️ 아직 승화에 필요한 골드가 부족합니다! (최소 5,000 골드 필요)', 'warning');
+    function renderAdventureStageUI() {
+        const stageNum = state.adventure.currentStage || 1;
+        const stageDef = window.STAGES_DATABASE.find(s => s.stage === stageNum);
+        if (!stageDef) return;
+
+        const maxCleared = state.adventure.maxClearedStage || 0;
+        const isLocked = stageNum > maxCleared + 1;
+
+        // 헤더 뱃지
+        const badge = document.getElementById('adv-current-stage-badge');
+        if (badge) badge.innerHTML = `현재 선택: <b style="color:var(--accent-gold);">STAGE ${stageNum}</b> (최고 클리어: STAGE ${maxCleared})`;
+
+        document.getElementById('adv-stage-num').innerText = `STAGE ${stageNum}`;
+        document.getElementById('adv-stage-name').innerText = stageDef.name;
+        document.getElementById('adv-rec-power').innerText = formatNumber(stageDef.recPower);
+        document.getElementById('adv-stage-desc').innerText = stageDef.desc;
+
+        document.getElementById('adv-boss-icon').innerText = stageDef.bossIcon;
+        document.getElementById('adv-boss-name').innerText = stageDef.bossName;
+        document.getElementById('adv-boss-name').style.color = stageDef.bossColor;
+        document.getElementById('adv-boss-hp').innerText = formatNumber(stageDef.bossHp);
+        document.getElementById('adv-boss-atk').innerText = formatNumber(stageDef.bossAtk);
+
+        // 버프 박스
+        const buffBox = document.getElementById('adv-buff-reward-box');
+        const buffText = document.getElementById('adv-buff-text');
+        if (stageDef.buffReward) {
+            buffBox.style.display = 'block';
+            buffText.innerHTML = `<b>${stageDef.buffReward.title}:</b> ${stageDef.buffReward.desc}`;
+        } else {
+            buffBox.style.display = 'none';
+        }
+
+        document.getElementById('adv-stage-select-label').innerText = `Stage ${stageNum} / ${window.STAGES_DATABASE.length}`;
+
+        const startBtn = document.getElementById('adv-start-battle-btn');
+        if (isLocked) {
+            startBtn.disabled = true;
+            startBtn.innerText = `🔒 이전 스테이지 클리어 필요`;
+            startBtn.style.opacity = '0.5';
+        } else {
+            startBtn.disabled = false;
+            startBtn.innerText = `⚔️ STAGE ${stageNum} 모험 출격하기 (START)`;
+            startBtn.style.opacity = '1';
+        }
+
+        renderEarnedBuffsList();
+    }
+
+    function renderEarnedBuffsList() {
+        const container = document.getElementById('adv-earned-buffs-list');
+        if (!container) return;
+
+        const earned = state.adventure.earnedBuffs || [];
+        if (earned.length === 0) {
+            container.innerHTML = '<div class="none-text" style="color:#666; font-size:0.8rem; padding:8px;">아직 획득한 관문 버프가 없습니다. 5, 10, 15 스테이지를 돌파하여 영구 버프를 획득하세요!</div>';
             return;
         }
 
-        const confirmMsg = `🌋 [태초의 불꽃 승화]\n모든 골드, 대장간 시설, 제련 진행도를 불태워 ${pending}개의 태초의 불꽃을 얻으시겠습니까?\n\n(참고: 보관함의 장비 및 도감 해금 기록은 영구 보존됩니다!)`;
-        if (!confirm(confirmMsg)) return;
+        container.innerHTML = '';
+        earned.forEach(stNum => {
+            const stDef = window.STAGES_DATABASE.find(s => s.stage === stNum);
+            if (!stDef || !stDef.buffReward) return;
 
-        state.flame += pending;
-        state.gold = 0;
-        state.ore = 20;
-
-        // 시설 및 제련 리셋
-        resetWorkbench();
-        Object.keys(state.upgrades).forEach(key => {
-            state.upgrades[key] = 0;
+            const card = document.createElement('div');
+            card.className = 'upgrade-card';
+            card.style.borderColor = '#eab308';
+            card.innerHTML = `
+                <div class="upg-info">
+                    <span class="upg-title" style="color:#fef08a;">🌟 [Stage ${stNum}] ${stDef.buffReward.title}</span>
+                    <span class="upg-desc">${stDef.buffReward.desc}</span>
+                </div>
+                <span style="color:#00ffaa; font-weight:800; font-size:0.75rem;">영구 적용 중</span>
+            `;
+            container.appendChild(card);
         });
+    }
 
-        // 원정대 상태 리셋
-        Object.keys(state.dungeons).forEach(key => {
-            state.dungeons[key] = 0;
-        });
+    function startAdventureBattle() {
+        const stageNum = state.adventure.currentStage || 1;
+        const stageDef = window.STAGES_DATABASE.find(s => s.stage === stageNum);
+        if (!stageDef) return;
 
-        if (particlesInstance) {
-            particlesInstance.spawnCriticalSparks(window.innerWidth / 2, window.innerHeight / 2, '#ff3300');
+        const eqWeapon = getEquippedWeapon();
+        const basePlayerPower = eqWeapon ? eqWeapon.power : 10;
+        const wDef = eqWeapon ? window.WEAPONS_DATABASE.find(w => w.id === eqWeapon.id) : null;
+
+        // 플레이어 기본 체력 및 버프 반영
+        let playerMaxHp = 100 + Math.floor(basePlayerPower * 0.5);
+        if (state.adventure.earnedBuffs.includes(5)) playerMaxHp = Math.floor(playerMaxHp * 1.25);
+
+        // 몬스터 생성 (미니언들 + 보스)
+        const minions = [];
+        for (let i = 0; i < stageDef.minionCount; i++) {
+            minions.push({
+                x: 150 + Math.random() * 380,
+                y: 50 + Math.random() * 220,
+                hp: stageDef.minionHp,
+                maxHp: stageDef.minionHp,
+                atk: stageDef.minionAtk,
+                icon: stageDef.minionIcon,
+                size: 16,
+                speed: 40 + Math.random() * 25,
+                attackCooldown: Math.random() * 2
+            });
         }
-        window.SoundFX.playLegendaryFanfare();
 
-        showToast(`🔥 승화 완료! 태초의 불꽃 +${pending}개 획득! (현재 글로벌 배수: x${getFlameMultiplier().toFixed(2)})`, 'success');
+        adventureBattleState = {
+            active: true,
+            stageDef,
+            timeLeft: 60.0, // 스테이지당 약 1분
+            player: {
+                x: 50,
+                y: 170,
+                hp: playerMaxHp,
+                maxHp: playerMaxHp,
+                speed: 160,
+                size: 18,
+                atk: Math.max(15, Math.floor(basePlayerPower * 0.8)),
+                swingTimer: 0,
+                swingDuration: 0.22,
+                weaponIcon: wDef ? wDef.icon : '🗡️',
+                weaponName: wDef ? wDef.name : '기본 단검'
+            },
+            boss: {
+                x: 480,
+                y: 170,
+                hp: stageDef.bossHp,
+                maxHp: stageDef.bossHp,
+                atk: stageDef.bossAtk,
+                icon: stageDef.bossIcon,
+                name: stageDef.bossName,
+                color: stageDef.bossColor,
+                size: 32,
+                speed: 55,
+                attackCooldown: 1.5
+            },
+            minions,
+            particles: [],
+            floatingTexts: []
+        };
+
+        window.SoundFX.playBuySound();
+        showToast(`⚔️ [${stageDef.name}] 모험 전투 개시!`, 'info');
+
+        // 포커스 및 루프 가동
+        const canvas = document.getElementById('adventure-canvas');
+        if (canvas) canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        if (!adventureAnimFrame) {
+            lastAdvFrameTime = performance.now();
+            adventureLoop(performance.now());
+        }
+    }
+
+    let lastAdvFrameTime = performance.now();
+
+    function adventureLoop(now) {
+        const dt = Math.min(0.1, (now - lastAdvFrameTime) / 1000);
+        lastAdvFrameTime = now;
+
+        if (adventureBattleState && adventureBattleState.active) {
+            updateAdventureBattle(dt);
+            renderAdventureBattle();
+            adventureAnimFrame = requestAnimationFrame(adventureLoop);
+        } else {
+            renderAdventureIdle();
+            adventureAnimFrame = requestAnimationFrame(adventureLoop);
+        }
+    }
+
+    function updateAdventureBattle(dt) {
+        const b = adventureBattleState;
+        if (!b) return;
+
+        b.timeLeft -= dt;
+        if (b.timeLeft <= 0) {
+            endAdventureBattle(false, '⏱️ 제한시간(60초) 초과로 보스를 격파하지 못했습니다!');
+            return;
+        }
+
+        const p = b.player;
+
+        // 플레이어 이동 (WASD)
+        let dx = 0;
+        let dy = 0;
+        if (playerKeys.w) dy -= 1;
+        if (playerKeys.s) dy += 1;
+        if (playerKeys.a) dx -= 1;
+        if (playerKeys.d) dx += 1;
+
+        if (dx !== 0 && dy !== 0) {
+            dx *= 0.7071;
+            dy *= 0.7071;
+        }
+
+        p.x = Math.max(p.size, Math.min(600 - p.size, p.x + dx * p.speed * dt));
+        p.y = Math.max(p.size, Math.min(340 - p.size, p.y + dy * p.speed * dt));
+
+        // 플레이어 공격 쿨다운
+        if (p.swingTimer > 0) {
+            p.swingTimer -= dt;
+        }
+        if (playerKeys.space && p.swingTimer <= 0) {
+            performPlayerAttack();
+        }
+
+        // 보스 AI
+        const boss = b.boss;
+        if (boss.hp > 0) {
+            const bdx = p.x - boss.x;
+            const bdy = p.y - boss.y;
+            const bDist = Math.hypot(bdx, bdy);
+
+            if (bDist > 40) {
+                boss.x += (bdx / bDist) * boss.speed * dt;
+                boss.y += (bdy / bDist) * boss.speed * dt;
+            }
+
+            boss.attackCooldown -= dt;
+            if (boss.attackCooldown <= 0 && bDist < 55) {
+                boss.attackCooldown = 1.2;
+                p.hp -= boss.atk;
+                b.floatingTexts.push({ x: p.x, y: p.y - 20, text: `-${boss.atk}`, color: '#ff3344', life: 0.8 });
+                window.SoundFX.playAnvilHit(true);
+
+                if (p.hp <= 0) {
+                    endAdventureBattle(false, `💀 보스 [${boss.name}]에게 쓰러졌습니다!`);
+                    return;
+                }
+            }
+        }
+
+        // 미니언 AI
+        b.minions.forEach(m => {
+            if (m.hp <= 0) return;
+            const mdx = p.x - m.x;
+            const mdy = p.y - m.y;
+            const mDist = Math.hypot(mdx, mdy);
+
+            if (mDist > 28) {
+                m.x += (mdx / mDist) * m.speed * dt;
+                m.y += (mdy / mDist) * m.speed * dt;
+            }
+
+            m.attackCooldown -= dt;
+            if (m.attackCooldown <= 0 && mDist < 35) {
+                m.attackCooldown = 1.5;
+                p.hp -= m.atk;
+                b.floatingTexts.push({ x: p.x, y: p.y - 15, text: `-${m.atk}`, color: '#ff7777', life: 0.7 });
+
+                if (p.hp <= 0) {
+                    endAdventureBattle(false, `💀 몬스터 무리에게 쓰러졌습니다!`);
+                    return;
+                }
+            }
+        });
+
+        // 죽은 미니언 정리
+        b.minions = b.minions.filter(m => m.hp > 0);
+
+        // 보스 사망 시 승리!
+        if (boss.hp <= 0) {
+            endAdventureBattle(true, `🎉 STAGE ${b.stageDef.stage} 돌파 성공!`);
+            return;
+        }
+
+        // 파티클 & 텍스트 갱신
+        b.floatingTexts.forEach(ft => {
+            ft.y -= 30 * dt;
+            ft.life -= dt;
+        });
+        b.floatingTexts = b.floatingTexts.filter(ft => ft.life > 0);
+
+        // HUD UI 바 갱신
+        const pHpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
+        const bHpPct = Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100));
+
+        document.getElementById('arena-player-hp-text').innerText = `${Math.max(0, Math.floor(p.hp))}/${p.maxHp}`;
+        document.getElementById('arena-player-hp-bar').style.width = `${pHpPct}%`;
+
+        document.getElementById('arena-boss-hp-label').innerText = `${boss.name} (${Math.floor(bHpPct)}%)`;
+        document.getElementById('arena-boss-hp-bar').style.width = `${bHpPct}%`;
+
+        document.getElementById('arena-timer').innerText = `⏱️ ${b.timeLeft.toFixed(1)}s`;
+    }
+
+    function performPlayerAttack() {
+        const b = adventureBattleState;
+        if (!b) return;
+
+        const p = b.player;
+        p.swingTimer = p.swingDuration;
+        window.SoundFX.playAnvilHit(false);
+
+        const attackRange = 70;
+
+        // 보스 타격 판정
+        const bDist = Math.hypot(b.boss.x - p.x, b.boss.y - p.y);
+        if (bDist <= attackRange + b.boss.size) {
+            const isCrit = Math.random() < getCriticalChance();
+            let dmg = p.atk;
+            if (isCrit) dmg *= 3;
+
+            b.boss.hp -= dmg;
+            b.floatingTexts.push({
+                x: b.boss.x,
+                y: b.boss.y - 30,
+                text: `${isCrit ? '💥 CRIT ' : ''}${formatNumber(dmg)}!`,
+                color: isCrit ? '#ffea00' : '#00e5ff',
+                life: 0.8
+            });
+        }
+
+        // 미니언 타격 판정 (광역 휘두르기)
+        b.minions.forEach(m => {
+            const mDist = Math.hypot(m.x - p.x, m.y - p.y);
+            if (mDist <= attackRange + m.size) {
+                m.hp -= p.atk;
+                b.floatingTexts.push({
+                    x: m.x,
+                    y: m.y - 20,
+                    text: `${formatNumber(p.atk)}`,
+                    color: '#ffffff',
+                    life: 0.6
+                });
+            }
+        });
+    }
+
+    function endAdventureBattle(isVictory, msg) {
+        if (!adventureBattleState) return;
+
+        const stageDef = adventureBattleState.stageDef;
+        adventureBattleState.active = false;
+        adventureBattleState = null;
+
+        if (isVictory) {
+            window.SoundFX.playCraftComplete();
+            showToast(`${msg} (+${formatNumber(stageDef.rewardGold)} 🪙, +${stageDef.rewardOre} 💎)`, 'success');
+
+            state.gold += stageDef.rewardGold;
+            state.ore += stageDef.rewardOre;
+
+            // 최고 클리어 스테이지 갱신
+            if (stageDef.stage > (state.adventure.maxClearedStage || 0)) {
+                state.adventure.maxClearedStage = stageDef.stage;
+
+                // 5의 배수 스테이지 영구 버프 지급
+                if (stageDef.stage % 5 === 0 && !state.adventure.earnedBuffs.includes(stageDef.stage)) {
+                    state.adventure.earnedBuffs.push(stageDef.stage);
+                    if (stageDef.buffReward) {
+                        showToast(`🏆 [영구 관문 버프 획득!] ${stageDef.buffReward.title}: ${stageDef.buffReward.desc}`, 'success');
+                        window.SoundFX.playLegendaryFanfare();
+                    }
+                }
+            }
+
+            // 다음 스테이지 자동 선택
+            if (stageDef.stage < window.STAGES_DATABASE.length) {
+                state.adventure.currentStage = stageDef.stage + 1;
+            }
+        } else {
+            showToast(msg, 'warning');
+        }
+
+        renderAdventureStageUI();
         updateUI();
         autoSave();
+    }
+
+    function renderAdventureBattle() {
+        const canvas = document.getElementById('adventure-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const b = adventureBattleState;
+        if (!b) return;
+
+        // 배경
+        ctx.fillStyle = '#060911';
+        ctx.fillRect(0, 0, 600, 340);
+
+        // 격자 그리드 라인
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < 600; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 340); ctx.stroke();
+        }
+        for (let y = 0; y < 340; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(600, y); ctx.stroke();
+        }
+
+        // 미니언 그리기
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        b.minions.forEach(m => {
+            ctx.fillText(m.icon, m.x, m.y);
+            // 미니언 미니 HP 바
+            const pct = Math.max(0, m.hp / m.maxHp);
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(m.x - 12, m.y - 18, 24, 3);
+            ctx.fillStyle = '#ff4444';
+            ctx.fillRect(m.x - 12, m.y - 18, 24 * pct, 3);
+        });
+
+        // 보스 그리기
+        const boss = b.boss;
+        ctx.font = '36px sans-serif';
+        ctx.fillText(boss.icon, boss.x, boss.y);
+
+        // 플레이어 & 무기 휘두르기 이펙트
+        const p = b.player;
+        ctx.font = '26px sans-serif';
+        ctx.fillText('🧙‍♂️', p.x, p.y);
+
+        // 장착한 무기 아이콘 렌더링
+        ctx.font = '18px sans-serif';
+        ctx.fillText(p.weaponIcon, p.x + 16, p.y - 10);
+
+        // 휘두르기 궤적 아크
+        if (p.swingTimer > 0) {
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 45, -Math.PI / 4, Math.PI / 2);
+            ctx.stroke();
+        }
+
+        // 데미지 텍스트 렌더링
+        ctx.font = 'bold 14px Cinzel, sans-serif';
+        b.floatingTexts.forEach(ft => {
+            ctx.fillStyle = ft.color;
+            ctx.fillText(ft.text, ft.x, ft.y);
+        });
+    }
+
+    function renderAdventureIdle() {
+        const canvas = document.getElementById('adventure-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#060911';
+        ctx.fillRect(0, 0, 600, 340);
+
+        ctx.font = '40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚔️', 300, 130);
+
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('모험 출격(START)을 누르면 실시간 전투가 시작됩니다!', 300, 180);
+
+        ctx.font = '13px sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('[WASD] 이동 | [Space] 또는 [클릭] 공격 | 대표 장착 무기 스탯 반영', 300, 215);
     }
 
     // ------------------------------------------------------------------------
@@ -978,7 +1509,8 @@
         // 1. Currencies
         document.getElementById('disp-gold').innerText = formatNumber(state.gold);
         document.getElementById('disp-ore').innerText = formatNumber(state.ore);
-        document.getElementById('disp-flame').innerText = formatNumber(state.flame);
+        const stageDisp = document.getElementById('disp-stage');
+        if (stageDisp) stageDisp.innerText = (state.adventure ? state.adventure.currentStage : 1);
         document.getElementById('disp-total-dps').innerText = formatNumber(getMercenaryTotalDPS());
 
         // 2. Workbench & Current Weapon
@@ -998,7 +1530,8 @@
         document.getElementById('weapon-quality').innerText = `${state.currentQuality}%`;
         document.getElementById('weapon-rarity-rate').innerText = wDef.rarityRate;
         document.getElementById('weapon-enhance').innerText = `+${state.currentEnhancement}`;
-        document.getElementById('weapon-multiplier').innerText = `x${getFlameMultiplier().toFixed(2)} 승화 배수`;
+        const advMult = getAdventureBuffMultiplier();
+        document.getElementById('weapon-multiplier').innerText = `x${advMult.toFixed(2)} 모험 버프 배수`;
 
         const statusBadge = document.getElementById('weapon-status-badge');
         if (state.isCraftingComplete) {
@@ -1051,12 +1584,6 @@
 
         // 7. Dungeons Button State
         updateDungeonButtonsState();
-
-        // 8. Ascension View
-        const pending = getPendingFlames();
-        document.getElementById('pending-flames').innerText = `+${pending} 🔥`;
-        document.getElementById('current-flame-mult').innerText = `x${getFlameMultiplier().toFixed(2)}`;
-        document.getElementById('ascend-btn').disabled = pending <= 0;
     }
 
     // ------------------------------------------------------------------------
@@ -1376,6 +1903,7 @@
                 state.inventory = Array.isArray(parsed.inventory) ? parsed.inventory : [];
                 state.settings = Object.assign({}, defaultState.settings, parsed.settings || {});
                 state.autoFilter = Object.assign({}, defaultState.autoFilter, parsed.autoFilter || {});
+                state.adventure = Object.assign({}, defaultState.adventure, parsed.adventure || {});
                 showToast('💾 저장된 게임 데이터를 성공적으로 불러왔습니다!', 'info');
             }
         } catch (e) {
@@ -1487,13 +2015,19 @@
         // 5. 룬 인챈트
         const rollRuneBtn = document.getElementById('roll-rune-btn');
         if (rollRuneBtn) {
-            rollRuneBtn.addEventListener('click', rollRune);
+            rollRuneBtn.addEventListener('click', () => rollRune());
         }
 
-        // 6. 환생 (승화)
-        const ascendBtn = document.getElementById('ascend-btn');
-        if (ascendBtn) {
-            ascendBtn.addEventListener('click', triggerAscension);
+        // 5-1. 룬 자동 인챈트 토글 버튼
+        const autoRuneToggleBtn = document.getElementById('auto-rune-toggle-btn');
+        if (autoRuneToggleBtn) {
+            autoRuneToggleBtn.addEventListener('click', () => {
+                if (isAutoRuneActive) {
+                    stopAutoRune();
+                } else {
+                    startAutoRune();
+                }
+            });
         }
 
         // 7. 상단 헤더 컨트롤
@@ -1584,6 +2118,7 @@
                 if (targetId === 'tab-codex') renderCodexList();
                 if (targetId === 'tab-runes') renderRuneTargetSelector();
                 if (targetId === 'tab-expedition') renderDungeonsList();
+                if (targetId === 'tab-adventure') renderAdventureStageUI();
             });
         });
 
@@ -1625,6 +2160,71 @@
         if (runeTargetSel) {
             runeTargetSel.addEventListener('change', updateUI);
         }
+
+        // 9-5. 실시간 모험 (RPG) 컨트롤 버튼 및 키보드 조작 바인딩
+        const prevStageBtn = document.getElementById('adv-prev-stage-btn');
+        if (prevStageBtn) {
+            prevStageBtn.addEventListener('click', () => {
+                selectAdventureStage((state.adventure.currentStage || 1) - 1);
+            });
+        }
+
+        const nextStageBtn = document.getElementById('adv-next-stage-btn');
+        if (nextStageBtn) {
+            nextStageBtn.addEventListener('click', () => {
+                selectAdventureStage((state.adventure.currentStage || 1) + 1);
+            });
+        }
+
+        const startBattleBtn = document.getElementById('adv-start-battle-btn');
+        if (startBattleBtn) {
+            startBattleBtn.addEventListener('click', startAdventureBattle);
+        }
+
+        const giveupBtn = document.getElementById('adv-giveup-btn');
+        if (giveupBtn) {
+            giveupBtn.addEventListener('click', () => {
+                if (adventureBattleState && adventureBattleState.active) {
+                    endAdventureBattle(false, '🏳️ 전투에서 퇴각했습니다.');
+                }
+            });
+        }
+
+        // 캔버스 클릭 공격
+        const advCanvas = document.getElementById('adventure-canvas');
+        if (advCanvas) {
+            advCanvas.addEventListener('mousedown', (e) => {
+                if (adventureBattleState && adventureBattleState.active) {
+                    performPlayerAttack();
+                }
+            });
+        }
+
+        // 키보드 이벤트 (WASD + Space)
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || e.key === 'ArrowUp') playerKeys.w = true;
+            if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = true;
+            if (k === 's' || e.key === 'ArrowDown') playerKeys.s = true;
+            if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = true;
+            if (e.code === 'Space') {
+                playerKeys.space = true;
+                if (adventureBattleState && adventureBattleState.active) {
+                    performPlayerAttack();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || e.key === 'ArrowUp') playerKeys.w = false;
+            if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = false;
+            if (k === 's' || e.key === 'ArrowDown') playerKeys.s = false;
+            if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = false;
+            if (e.code === 'Space') playerKeys.space = false;
+        });
+
+        renderAdventureStageUI();
 
         // 10. 인벤토리 정렬 필터 변경
         const sortSelect = document.getElementById('inv-sort-select');

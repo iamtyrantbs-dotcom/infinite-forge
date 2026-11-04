@@ -77,11 +77,11 @@
                     </div>
                 </div>
 
-                <div class="curr-card flame" title="환생(승화)을 통해 축적하는 태초의 불꽃">
-                    <span class="curr-icon">🌋</span>
+                <div class="curr-card stage" title="돌파한 모험 스테이지">
+                    <span class="curr-icon">🏆</span>
                     <div class="curr-info">
-                        <span class="curr-label">Flame</span>
-                        <span class="curr-val" id="disp-flame">0</span>
+                        <span class="curr-label">Stage</span>
+                        <span class="curr-val" id="disp-stage">1</span>
                     </div>
                 </div>
 
@@ -241,7 +241,7 @@
                     <button class="tab-btn" data-tab="tab-codex">📖 무기 도감 (<span id="codex-count-badge">0/32</span>)</button>
                     <button class="tab-btn" data-tab="tab-runes">🔮 룬 인챈트</button>
                     <button class="tab-btn" data-tab="tab-expedition">⚔️ 원정대</button>
-                    <button class="tab-btn flame-tab" data-tab="tab-rebirth">🌋 승화(환생)</button>
+                    <button class="tab-btn adventure-tab" data-tab="tab-adventure">🗺️ 실시간 모험 (RPG)</button>
                 </nav>
 
                 <!-- 1. 제련 업그레이드 탭 -->
@@ -316,10 +316,27 @@
                             <div class="rune-name" id="active-rune-name">각인된 룬 없음</div>
                             <div class="rune-effect" id="active-rune-desc">에테르 광석 50개를 소모해 고대 룬을 추출하세요.</div>
                         </div>
-                        <div class="rune-buttons">
+                        <div class="rune-buttons" style="display:flex; flex-direction:column; gap:8px;">
                             <button id="roll-rune-btn" class="altar-btn">
-                                <span>🎲 룬 각인 (비용: <b id="rune-cost">50</b> 💎)</span>
+                                <span>🎲 1회 룬 각인 (비용: <b id="rune-cost">50</b> 💎)</span>
                             </button>
+                            <!-- 룬 자동 인챈트 설정 패널 -->
+                            <div class="auto-rune-panel">
+                                <div class="auto-rune-row">
+                                    <label for="auto-rune-target-tier">🎯 목표 룬:</label>
+                                    <select id="auto-rune-target-tier" class="filter-select mini">
+                                        <option value="r_singularity">🌌 차원 붕괴 특이점 (Godly)</option>
+                                        <option value="r_genesis">👑 태초의 창조물 (Legendary 이상)</option>
+                                        <option value="r_void">🔮 심연의 포식자 (Epic 이상)</option>
+                                        <option value="r_thunder">⚡ 천둥의 분노 (Rare 이상)</option>
+                                        <option value="r_ether">💎 흐르는 에테르 (Uncommon 이상)</option>
+                                    </select>
+                                    <button id="auto-rune-toggle-btn" class="mini-btn highlight" style="flex-shrink:0;">
+                                        ⚡ 자동 각인 시작
+                                    </button>
+                                </div>
+                                <span class="auto-rune-hint">목표 룬이 뜰 때까지 에테르 광석을 소모해 연속으로 제련합니다.</span>
+                            </div>
                         </div>
                     </div>
                     <h4 class="sub-section-title">발견 가능한 고대 룬 목록</h4>
@@ -339,27 +356,90 @@
                     <div id="dungeon-list" class="cards-list"></div>
                 </div>
 
-                <!-- 6. 승화 (환생) 탭 -->
-                <div id="tab-rebirth" class="tab-content">
-                    <div class="tab-header">
-                        <h3 style="color:#ff5533;">태초의 불꽃 승화 (Ascension)</h3>
-                        <p>현재 진행도를 불태워 우주의 에너지를 흡수하고, 영구 글로벌 제작 배수를 얻습니다.</p>
+                <!-- 6. 실시간 모험 (RPG 모드 - 환생 대체) -->
+                <div id="tab-adventure" class="tab-content">
+                    <div class="tab-header flex-header">
+                        <div>
+                            <h3 style="color:#38bdf8;">실시간 던전 모험 (Action RPG)</h3>
+                            <p>장착한 대표 검으로 직접 캐릭터를 조작하여 스테이지를 돌파하세요!</p>
+                        </div>
+                        <div class="stage-badge-pill" id="adv-current-stage-badge">
+                            현재: <b style="color:var(--accent-gold);">STAGE 1</b>
+                        </div>
                     </div>
-                    <div class="rebirth-card">
-                        <div class="rebirth-flame-icon">🌋</div>
-                        <h4>IGNITE THE WORLD</h4>
-                        <p>모든 골드와 일반 업그레이드를 태워 태초의 불꽃으로 승화합니다.<br><small style="color:#bbb;">(주의: 인벤토리의 최고급 무기와 도감 해금 기록은 영구 보존됩니다!)</small></p>
-                        <div class="rebirth-payout">
-                            <span>획득 예정 태초의 불꽃:</span>
-                            <h2 id="pending-flames">+0 🔥</h2>
+
+                    <!-- 스테이지 선택 및 보스/권장전투력 안내 카드 -->
+                    <div class="adventure-stage-selector-card">
+                        <div class="stage-info-header">
+                            <div class="stage-title-wrap">
+                                <span class="stage-num-tag" id="adv-stage-num">STAGE 1</span>
+                                <h4 id="adv-stage-name">고블린 정찰대 주둔지</h4>
+                            </div>
+                            <div class="stage-power-badge">
+                                <span>권장 전투력:</span>
+                                <b id="adv-rec-power" style="color:var(--accent-cyan);">25</b>
+                            </div>
                         </div>
-                        <div class="rebirth-multiplier-stat">
-                            <span>현재 승화 글로벌 배수:</span>
-                            <b id="current-flame-mult">x1.00</b>
+                        <p class="stage-desc-text" id="adv-stage-desc">숲 외곽에 진을 친 척후병 무리와 우두머리 고블린입니다.</p>
+
+                        <div class="stage-boss-preview-box">
+                            <span class="boss-icon" id="adv-boss-icon">👹</span>
+                            <div class="boss-details">
+                                <div class="boss-name" id="adv-boss-name">고블린 척후대장 그록</div>
+                                <div class="boss-stats">체력: <b id="adv-boss-hp">800</b> | 공격력: <b id="adv-boss-atk">12</b> | 제한시간: <b>60초</b></div>
+                            </div>
                         </div>
-                        <button id="ascend-btn" class="ascend-button" disabled>
-                            승화하여 환생하기 (ASCEND)
-                        </button>
+
+                        <!-- 5스테이지 단위 영구 버프 안내 -->
+                        <div class="stage-buff-reward-box" id="adv-buff-reward-box">
+                            🏆 <b>5스테이지 돌파 보너스:</b> <span id="adv-buff-text">영구 대지 갑주 (플레이어 최대 체력 +25% & 제련 진행도 +2%)</span>
+                        </div>
+
+                        <div class="stage-nav-controls">
+                            <button id="adv-prev-stage-btn" class="mini-btn">◀ 이전</button>
+                            <span id="adv-stage-select-label" style="font-size:0.82rem; font-weight:700;">Stage 1 / 15</span>
+                            <button id="adv-next-stage-btn" class="mini-btn">다음 ▶</button>
+                            <button id="adv-start-battle-btn" class="adv-start-btn">
+                                ⚔️ 모험 출격하기 (START)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 실시간 캔버스 전투 아레나 뷰 (평상시에는 미니 뷰, 전투 시작 시 활성화) -->
+                    <div class="adventure-arena-wrapper" id="adv-arena-wrapper">
+                        <!-- HUD 오버레이 -->
+                        <div class="arena-hud">
+                            <div class="arena-hud-left">
+                                <div class="arena-bar-wrap">
+                                    <span class="arena-bar-label">HP: <b id="arena-player-hp-text">100/100</b></span>
+                                    <div class="arena-bar-track"><div id="arena-player-hp-bar" class="arena-bar-fill player" style="width:100%;"></div></div>
+                                </div>
+                            </div>
+                            <div class="arena-hud-center">
+                                <div class="arena-timer" id="arena-timer">⏱️ 60.0s</div>
+                            </div>
+                            <div class="arena-hud-right">
+                                <div class="arena-bar-wrap">
+                                    <span class="arena-bar-label" id="arena-boss-hp-label">BOSS HP</span>
+                                    <div class="arena-bar-track"><div id="arena-boss-hp-bar" class="arena-bar-fill boss" style="width:100%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2D Canvas 게임 화면 -->
+                        <canvas id="adventure-canvas" width="600" height="340"></canvas>
+
+                        <!-- 모바일 / 키보드 조작 힌트 바 -->
+                        <div class="arena-controls-hint">
+                            <span>조작: <b>[WASD]</b> 또는 <b>[방향키]</b> 이동 | <b>[Space]</b> 또는 <b>[클릭]</b> 무기 휘두르기 공격!</span>
+                            <button id="adv-giveup-btn" class="mini-btn danger" style="padding:2px 8px; font-size:0.7rem;">포기하고 퇴각</button>
+                        </div>
+                    </div>
+
+                    <!-- 획득한 영구 관문 버프 컬렉션 목록 -->
+                    <h4 class="sub-section-title" style="margin-top:14px;">🌟 획득한 영구 모험 버프 (5스테이지 단위)</h4>
+                    <div id="adv-earned-buffs-list" class="cards-list mini">
+                        <div class="none-text" style="color:#666; font-size:0.8rem; padding:8px;">아직 획득한 관문 버프가 없습니다. 5, 10, 15 스테이지를 돌파하여 영구 버프를 획득하세요!</div>
                     </div>
                 </div>
             </aside>
@@ -368,6 +448,7 @@
 
     <!-- 스크립트 연결 -->
     <script src="js/database.js"></script>
+    <script src="js/stages.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/particles.js"></script>
     <script src="game.js"></script>

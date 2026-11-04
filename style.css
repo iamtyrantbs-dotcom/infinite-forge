@@ -1394,6 +1394,239 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* ---------------- AUTO-RUNE INCHANT CONTROLS ---------------- */
+.auto-rune-panel {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.auto-rune-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.auto-rune-row label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    white-space: nowrap;
+}
+
+.auto-rune-hint {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+/* ---------------- ADVENTURE MODE (RPG ARENA) ---------------- */
+.adventure-stage-selector-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.stage-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stage-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stage-num-tag {
+    background: linear-gradient(135deg, #00e5ff, #3b82f6);
+    color: #000;
+    font-weight: 900;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+}
+
+.stage-power-badge {
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid var(--accent-cyan);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    display: flex;
+    gap: 4px;
+}
+
+.stage-desc-text {
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+.stage-boss-preview-box {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.stage-boss-preview-box .boss-icon {
+    font-size: 2.2rem;
+}
+
+.stage-boss-preview-box .boss-name {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #ffaa00;
+}
+
+.stage-boss-preview-box .boss-stats {
+    font-size: 0.75rem;
+    color: #bbb;
+}
+
+.stage-buff-reward-box {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    color: #fef08a;
+    font-size: 0.76rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.stage-nav-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.adv-start-btn {
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    border: 1px solid #ff7700;
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.88rem;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+.adv-start-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+}
+
+/* Arena Canvas & Overlay */
+.adventure-arena-wrapper {
+    position: relative;
+    background: #090d16;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+}
+
+.arena-hud {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.arena-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 140px;
+}
+
+.arena-bar-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px #000;
+}
+
+.arena-bar-track {
+    width: 100%;
+    height: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.arena-bar-fill.player {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #00e5ff);
+    transition: width 0.1s;
+}
+
+.arena-bar-fill.boss {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f97316);
+    transition: width 0.1s;
+}
+
+.arena-timer {
+    background: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-weight: 900;
+    font-size: 0.85rem;
+    color: #ffdd00;
+}
+
+#adventure-canvas {
+    width: 100%;
+    max-width: 600px;
+    height: 320px;
+    display: block;
+    background: #060911;
+    cursor: crosshair;
+}
+
+.arena-controls-hint {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 6px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.arena-controls-hint b {
+    color: #00e5ff;
+}
+
 /* ---------------- FLOATING NUMBER ---------------- */
 .floating-hit {
     position: fixed;
