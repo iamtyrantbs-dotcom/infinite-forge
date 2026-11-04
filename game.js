@@ -1358,7 +1358,13 @@
 
         // 포커스 및 루프 가동
         const canvas = document.getElementById('adventure-canvas');
-        if (canvas) canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (canvas) {
+            canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            canvas.focus();
+        }
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+        }
 
         if (!adventureAnimFrame) {
             lastAdvFrameTime = performance.now();
@@ -2510,12 +2516,19 @@
 
         // 키보드 이벤트 (WASD + Space)
         window.addEventListener('keydown', (e) => {
+            // RPG 전투 활성 상태일 때 Space 또는 방향키/WASD 기본 동작(스크롤, 포커스된 버튼 재클릭 등) 방지
+            const isMovementOrActionKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Space'].includes(e.code);
+            if (isMovementOrActionKey && adventureBattleState && adventureBattleState.active) {
+                e.preventDefault();
+            }
+
             const k = e.key.toLowerCase();
             if (k === 'w' || e.key === 'ArrowUp') playerKeys.w = true;
             if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = true;
             if (k === 's' || e.key === 'ArrowDown') playerKeys.s = true;
             if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = true;
             if (e.code === 'Space') {
+                e.preventDefault(); // 스페이스바로 포커스된 버튼(출격/포기/모루 등)이 재트리거되어 전투가 초기화되는 문제 방지
                 playerKeys.space = true;
                 if (adventureBattleState && adventureBattleState.active) {
                     performPlayerAttack();
@@ -2529,7 +2542,10 @@
             if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = false;
             if (k === 's' || e.key === 'ArrowDown') playerKeys.s = false;
             if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = false;
-            if (e.code === 'Space') playerKeys.space = false;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                playerKeys.space = false;
+            }
         });
 
         renderAdventureStageUI();
