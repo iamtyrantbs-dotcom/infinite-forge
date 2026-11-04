@@ -1420,14 +1420,16 @@
         if (passiveGold > 0) state.gold += passiveGold * dt;
         if (passiveOre > 0) state.ore += passiveOre * dt;
 
-        // 자동 풀무질 타격 (Auto Hammer)
-        if (state.settings.autoHammer || (state.upgrades.bellowsSpeed || 0) > 0) {
+        // 자동 풀무질 타격 (Auto Hammer - 토글이 ON일 때만 작동)
+        if (state.settings.autoHammer) {
             autoHammerAccumulator += dt;
             const interval = getAutoBellowsInterval();
             if (autoHammerAccumulator >= interval) {
                 autoHammerAccumulator = 0;
                 strikeAnvil(null);
             }
+        } else {
+            autoHammerAccumulator = 0; // OFF일 때는 누적 타이머 리셋
         }
 
         updateUI();
@@ -1464,13 +1466,21 @@
         // 4. 자동 망치질 토글
         const autoHammerBtn = document.getElementById('auto-hammer-btn');
         if (autoHammerBtn) {
-            autoHammerBtn.addEventListener('click', () => {
-                state.settings.autoHammer = !state.settings.autoHammer;
+            const updateAutoHammerBtnUI = () => {
                 const statusSpan = document.getElementById('auto-hammer-status');
                 if (statusSpan) {
                     statusSpan.innerText = state.settings.autoHammer ? 'ON' : 'OFF';
                     statusSpan.style.color = state.settings.autoHammer ? '#00ffaa' : '#ff5555';
                 }
+            };
+            updateAutoHammerBtnUI();
+
+            autoHammerBtn.addEventListener('click', () => {
+                state.settings.autoHammer = !state.settings.autoHammer;
+                autoHammerAccumulator = 0;
+                updateAutoHammerBtnUI();
+                showToast(state.settings.autoHammer ? '🤖 자동 망치질(Auto Hammer) 활성화!' : '⏸️ 자동 망치질(Auto Hammer) 정지', 'info');
+                autoSave();
             });
         }
 
