@@ -320,6 +320,20 @@
                         <button id="smith-enhance-btn" class="smith-execute-btn" disabled>
                             🔥 강화 망치질 시작 (+1 도전)
                         </button>
+
+                        <!-- 보석 소켓 슬롯 UI (+5강, +10강, +15강에 해금) -->
+                        <div class="gem-socket-container" id="gem-socket-container">
+                            <div class="gem-socket-header">
+                                <span>💎 보석 소켓 (Gem Sockets)</span>
+                                <span style="font-size:0.75rem; color:#94a3b8;">+5강, +10강, +15강 달성 시 슬롯 오픈</span>
+                            </div>
+                            <div class="gem-socket-slots" id="gem-socket-slots-row">
+                                <!-- JS 동적 렌더링 -->
+                            </div>
+                            <div class="gem-inventory-row" id="gem-inventory-row">
+                                <!-- 보유 보석 목록 -->
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 강화 경고 및 팁 안내 -->

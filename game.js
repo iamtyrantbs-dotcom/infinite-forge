@@ -32,9 +32,18 @@
         activeRuneId: null,
 
         // 인벤토리 & 장착
-        inventory: [], // [{ uid, id, enhancement, quality, runeId, power, locked, forgedAt }]
+        inventory: [], // [{ uid, id, enhancement, quality, runeId, power, locked, gems: [], forgedAt }]
         equippedWeaponUid: null,
         maxInventorySlots: 30,
+
+        // 보유 보석 인벤토리 (id -> 수량)
+        gems: {
+            gem_ruby: 0,
+            gem_sapphire: 0,
+            gem_emerald: 0,
+            gem_topaz: 0,
+            gem_diamond: 0
+        },
 
         // 도감 해금 기록 (id -> { discovered: true, timesForged, maxEnhance, firstDiscoveredAt })
         codex: {},
@@ -223,6 +232,12 @@
         if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(15)) {
             bonus += 0.20;
         }
+        // 대표 장착 무기의 에메랄드 보석 보너스 (+15% per emerald)
+        const eqWeapon = getEquippedWeapon();
+        if (eqWeapon && Array.isArray(eqWeapon.gems)) {
+            const emeraldCount = eqWeapon.gems.filter(g => g === 'gem_emerald').length;
+            bonus += emeraldCount * 0.15;
+        }
         return bonus;
     }
 
@@ -232,7 +247,14 @@
         }
         const upgLvl = state.upgrades.criticalStrike || 0;
         const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'criticalStrike');
-        return 0.10 + (upgDef ? upgDef.effect(upgLvl) : 0);
+        let crit = 0.10 + (upgDef ? upgDef.effect(upgLvl) : 0);
+        // 대표 장착 무기의 다이아몬드 보석 보너스 (+12% per diamond)
+        const eqWeapon = getEquippedWeapon();
+        if (eqWeapon && Array.isArray(eqWeapon.gems)) {
+            const diamondCount = eqWeapon.gems.filter(g => g === 'gem_diamond').length;
+            crit += diamondCount * 0.12;
+        }
+        return crit;
     }
 
     function getAncientWhisperMult() {
@@ -259,7 +281,7 @@
         return upgDef ? upgDef.effect(upgLvl) : 1.0;
     }
 
-    function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
+    function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null, gems = []) {
         if (!weaponDef) return 10;
         const advBuffMult = getAdventureBuffMultiplier();
         const codexMult = getCodexBonusMultiplier();
@@ -269,7 +291,14 @@
         const enhanceMult = 1 + (enhancement * 0.35); // 강화 1당 +35% 공격력 증가
         const qualityMult = quality / 100;
 
-        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult * hyperMult * infMult);
+        // 보석 보너스 (루비당 +25% 공격력)
+        let gemPowerMult = 1.0;
+        if (Array.isArray(gems)) {
+            const rubyCount = gems.filter(g => g === 'gem_ruby').length;
+            gemPowerMult += rubyCount * 0.25;
+        }
+
+        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult * hyperMult * infMult * gemPowerMult);
     }
 
     function computeWeaponSalvagePrice(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
@@ -1152,6 +1181,64 @@
                 btn.innerText = `🔥 강화 망치질 시작 (+${item.enhancement + 1} 도전) [${formatNumber(cost.gold)}🪙 / ${cost.ore}💎]`;
             }
         }
+
+        renderGemSocketsUI(item);
+    }
+
+    function renderGemSocketsUI(item) {
+        const slotsRow = document.getElementById('gem-socket-slots-row');
+        const invRow = document.getElementById('gem-inventory-row');
+        if (!slotsRow || !invRow) return;
+
+        if (!item.gems) item.gems = [];
+
+        // 해금 가능한 소켓 수 계산 (+5강: 1슬롯, +10강: 2슬롯, +15강: 3슬롯)
+        let maxSockets = 0;
+        if (item.enhancement >= 15) maxSockets = 3;
+        else if (item.enhancement >= 10) maxSockets = 2;
+        else if (item.enhancement >= 5) maxSockets = 1;
+
+        slotsRow.innerHTML = '';
+        for (let i = 0; i < 3; i++) {
+            const isUnlocked = i < maxSockets;
+            const gemId = item.gems[i] || null;
+            const gemDef = gemId ? window.GEMS_DATABASE.find(g => g.id === gemId) : null;
+
+            const slotEl = document.createElement('div');
+            slotEl.className = `gem-socket-slot ${isUnlocked ? 'unlocked' : 'locked'}`;
+            if (!isUnlocked) {
+                slotEl.innerHTML = `<span style="font-size:1.1rem; opacity:0.4;">🔒</span><span style="font-size:0.65rem; color:#64748b;">+${(i + 1) * 5}강 필요</span>`;
+            } else if (gemDef) {
+                slotEl.innerHTML = `
+                    <span style="font-size:1.4rem;">${gemDef.icon}</span>
+                    <span style="font-size:0.7rem; color:${gemDef.color}; font-weight:700;">${gemDef.name}</span>
+                    <button class="mini-btn danger remove-gem-btn" data-slot="${i}" style="padding:1px 6px; font-size:0.65rem; margin-top:2px;">해제</button>
+                `;
+            } else {
+                slotEl.innerHTML = `<span style="font-size:1.2rem; opacity:0.6;">⭕</span><span style="font-size:0.7rem; color:#94a3b8;">빈 슬롯</span>`;
+            }
+            slotsRow.appendChild(slotEl);
+        }
+
+        // 보유 보석 인벤토리 및 가공/장착 바
+        invRow.innerHTML = '<div style="width:100%; font-size:0.75rem; color:#94a3b8; font-weight:700; margin-bottom:4px;">💎 보석 가공소 & 보유 보석 (광석 💎으로 연마):</div>';
+        window.GEMS_DATABASE.forEach(gem => {
+            const count = state.gems[gem.id] || 0;
+            const gemCard = document.createElement('div');
+            gemCard.className = 'gem-inv-card';
+            gemCard.innerHTML = `
+                <span style="font-size:1.2rem;">${gem.icon}</span>
+                <div style="flex:1;">
+                    <div style="font-weight:700; color:${gem.color}; font-size:0.75rem;">${gem.name} <b style="color:#fff;">(x${count})</b></div>
+                    <div style="font-size:0.68rem; color:#94a3b8;">${gem.desc}</div>
+                </div>
+                <div style="display:flex; gap:4px;">
+                    <button class="mini-btn craft-gem-btn" data-id="${gem.id}" style="padding:3px 8px; font-size:0.7rem;">연마 (${gem.costOre}💎)</button>
+                    <button class="mini-btn highlight equip-gem-btn" data-id="${gem.id}" ${count > 0 && item.gems.length < maxSockets ? '' : 'disabled'} style="padding:3px 8px; font-size:0.7rem;">장착</button>
+                </div>
+            `;
+            invRow.appendChild(gemCard);
+        });
     }
 
     function executeBlacksmithEnhance() {
@@ -1199,7 +1286,7 @@
         }
 
         // 새 스탯 및 파워 갱신
-        item.power = computeWeaponItemPower(wDef, item.enhancement, item.quality, rDef);
+        item.power = computeWeaponItemPower(wDef, item.enhancement, item.quality, rDef, item.gems);
 
         // 연출 및 사운드 피드백
         if (resultType === 'great') {
@@ -1222,6 +1309,81 @@
         renderBlacksmithSelector();
         renderInventoryList();
         renderRuneTargetSelector();
+        updateUI();
+        autoSave();
+    }
+
+    function craftGemstone(gemId) {
+        const gem = window.GEMS_DATABASE.find(g => g.id === gemId);
+        if (!gem) return;
+        if (state.ore < gem.costOre) {
+            showToast(`⚠️ 에테르 광석이 부족합니다! (${gem.costOre}💎 필요)`, 'warning');
+            return;
+        }
+        state.ore -= gem.costOre;
+        state.gems[gemId] = (state.gems[gemId] || 0) + 1;
+        window.SoundFX.playBuySound();
+        showToast(`💎 [${gem.name}] 연마 완료!`, 'success');
+        updateBlacksmithUI();
+        updateUI();
+        autoSave();
+    }
+
+    function equipGemToTargetWeapon(gemId) {
+        const selector = document.getElementById('smith-target-select');
+        const uid = selector ? selector.value : null;
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item) return;
+
+        let maxSockets = 0;
+        if (item.enhancement >= 15) maxSockets = 3;
+        else if (item.enhancement >= 10) maxSockets = 2;
+        else if (item.enhancement >= 5) maxSockets = 1;
+
+        if (!item.gems) item.gems = [];
+        if (item.gems.length >= maxSockets) {
+            showToast('⚠️ 더 이상 장착할 수 있는 소켓 슬롯이 없습니다! (+강화 필요)', 'warning');
+            return;
+        }
+
+        if ((state.gems[gemId] || 0) <= 0) {
+            showToast('⚠️ 보유한 보석이 없습니다!', 'warning');
+            return;
+        }
+
+        state.gems[gemId] -= 1;
+        item.gems.push(gemId);
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+        item.power = computeWeaponItemPower(wDef, item.enhancement, item.quality, rDef, item.gems);
+
+        window.SoundFX.playCraftComplete();
+        const gem = window.GEMS_DATABASE.find(g => g.id === gemId);
+        showToast(`✨ [${gem ? gem.name : '보석'}] 소켓 장착 완료!`, 'success');
+        updateBlacksmithUI();
+        renderInventoryList();
+        updateUI();
+        autoSave();
+    }
+
+    function removeGemFromTargetWeapon(slotIndex) {
+        const selector = document.getElementById('smith-target-select');
+        const uid = selector ? selector.value : null;
+        const item = state.inventory.find(i => i.uid === uid);
+        if (!item || !item.gems || !item.gems[slotIndex]) return;
+
+        const removedGemId = item.gems.splice(slotIndex, 1)[0];
+        state.gems[removedGemId] = (state.gems[removedGemId] || 0) + 1;
+
+        const wDef = window.WEAPONS_DATABASE.find(w => w.id === item.id);
+        const rDef = getRuneDef(item.runeId);
+        item.power = computeWeaponItemPower(wDef, item.enhancement, item.quality, rDef, item.gems);
+
+        window.SoundFX.playCoinSound();
+        showToast('💎 보석을 안전하게 추출하여 보관함에 반환했습니다.', 'info');
+        updateBlacksmithUI();
+        renderInventoryList();
         updateUI();
         autoSave();
     }
@@ -1403,7 +1565,13 @@
             playerSpeed = Math.floor(playerSpeed * (1 + sEff.speedBonus));
             playerSwingDuration = Math.max(0.12, 0.22 * (1 - sEff.swingReduction));
         }
-        if (state.adventure.earnedBuffs.includes(20)) playerSpeed = Math.floor(playerSpeed * 1.20);
+        // 대표 무기에 장착된 보석 버프 반영
+        const eqGems = (eqWeapon && Array.isArray(eqWeapon.gems)) ? eqWeapon.gems : [];
+        const sapphireCount = eqGems.filter(g => g === 'gem_sapphire').length;
+        if (sapphireCount > 0) playerMaxHp = Math.floor(playerMaxHp * (1 + sapphireCount * 0.30));
+
+        const topazCount = eqGems.filter(g => g === 'gem_topaz').length;
+        if (topazCount > 0) playerSpeed = Math.floor(playerSpeed * (1 + topazCount * 0.20));
 
         // 몬스터 생성 (미니언들 + 보스)
         const minions = [];
@@ -1814,6 +1982,13 @@
             state.gold += stageDef.rewardGold;
             state.ore += stageDef.rewardOre;
 
+            // RPG 보스 격파 시 보석 원석 드랍 찬스 (30% 확률)
+            if (Math.random() < 0.30 && window.GEMS_DATABASE && window.GEMS_DATABASE.length > 0) {
+                const randomGem = window.GEMS_DATABASE[Math.floor(Math.random() * window.GEMS_DATABASE.length)];
+                state.gems[randomGem.id] = (state.gems[randomGem.id] || 0) + 1;
+                showToast(`🎁 보스 전리품! [${randomGem.name}] 보석 획득!`, 'success');
+            }
+
             // 최고 클리어 스테이지 갱신
             if (stageDef.stage > (state.adventure.maxClearedStage || 0)) {
                 state.adventure.maxClearedStage = stageDef.stage;
@@ -2060,10 +2235,18 @@
         document.getElementById('modal-title').style.color = item.runeId ? rDef.color : wDef.color;
 
         const statsContainer = document.getElementById('modal-stats');
+        const modalGems = (item.gems && item.gems.length > 0)
+            ? item.gems.map(gid => {
+                const g = window.GEMS_DATABASE.find(dbG => dbG.id === gid);
+                return g ? `${g.icon} ${g.name}` : '';
+            }).join(', ')
+            : '장착 보석 없음';
+
         statsContainer.innerHTML = `
             <span>공격력: <b style="color:var(--accent-cyan);">${formatNumber(item.power)}</b></span>
             <span>품질: <b>${item.quality}%</b></span>
             <span>보너스: <b>${item.enhancement > 0 ? `+${item.enhancement}` : '없음'}</b></span>
+            <span style="grid-column: span 2;">보석: <b style="color:#f59e0b;">${modalGems}</b></span>
         `;
 
         document.getElementById('modal-lore').innerText = wDef.lore;
@@ -2285,12 +2468,19 @@
                 slot.className = `inv-slot ${isEquipped ? 'equipped' : ''}`;
                 slot.style.borderColor = rDef ? rDef.color : (wDef ? wDef.color : '#fff');
                 const price = computeWeaponSalvagePrice(wDef, item.enhancement, item.quality, rDef);
+                const gemIcons = (item.gems && item.gems.length > 0)
+                    ? item.gems.map(gid => {
+                        const g = window.GEMS_DATABASE.find(dbG => dbG.id === gid);
+                        return g ? g.icon : '';
+                    }).join('')
+                    : '';
 
                 slot.innerHTML = `
                     <div class="inv-icon">${wDef ? wDef.icon : '🗡️'}</div>
                     <div class="inv-name" style="color:${rDef ? rDef.color : (wDef ? wDef.color : '#fff')}">
                         ${item.enhancement > 0 ? `+${item.enhancement} ` : ''}${wDef ? wDef.name : 'Unknown'}
                     </div>
+                    ${gemIcons ? `<div style="font-size:0.75rem; margin-bottom:2px;">${gemIcons}</div>` : ''}
                     <div class="inv-power">⚡ ${formatNumber(item.power)}</div>
                     <div class="inv-slot-actions">
                         <button class="inv-action-btn lock ${item.locked ? 'is-locked' : ''}" title="${item.locked ? '잠금 해제' : '잠금'}">
@@ -2335,6 +2525,13 @@
         if (equippedItem && eqDisplay) {
             const wDef = window.WEAPONS_DATABASE.find(w => w.id === equippedItem.id);
             const rDef = getRuneDef(equippedItem.runeId);
+            const eqGemIcons = (equippedItem.gems && equippedItem.gems.length > 0)
+                ? equippedItem.gems.map(gid => {
+                    const g = window.GEMS_DATABASE.find(dbG => dbG.id === gid);
+                    return g ? g.icon : '';
+                }).join(' ')
+                : '없음';
+
             eqDisplay.innerHTML = `
                 <div style="display:flex; align-items:center; gap:12px;">
                     <span style="font-size:2.2rem;">${wDef ? wDef.icon : '🗡️'}</span>
@@ -2343,7 +2540,7 @@
                             ${rDef ? `[${rDef.name}] ` : ''}${wDef.name} +${equippedItem.enhancement}
                         </div>
                         <div style="font-size:0.78rem; color:#aaa;">
-                            공격력: <b style="color:var(--accent-cyan);">${formatNumber(equippedItem.power)}</b> | 품질: <b>${equippedItem.quality}%</b>
+                            공격력: <b style="color:var(--accent-cyan);">${formatNumber(equippedItem.power)}</b> | 품질: <b>${equippedItem.quality}%</b> | 보석: <b>${eqGemIcons}</b>
                         </div>
                     </div>
                 </div>
@@ -2769,6 +2966,33 @@
         const smithBtn = document.getElementById('smith-enhance-btn');
         if (smithBtn) {
             smithBtn.addEventListener('click', executeBlacksmithEnhance);
+        }
+
+        // 보석 소켓 슬롯 및 가공소 이벤트 위임
+        const gemContainer = document.getElementById('gem-socket-container');
+        if (gemContainer) {
+            gemContainer.addEventListener('click', (e) => {
+                const craftBtn = e.target.closest('.craft-gem-btn');
+                if (craftBtn) {
+                    const gemId = craftBtn.getAttribute('data-id');
+                    if (gemId) craftGemstone(gemId);
+                    return;
+                }
+
+                const equipBtn = e.target.closest('.equip-gem-btn');
+                if (equipBtn) {
+                    const gemId = equipBtn.getAttribute('data-id');
+                    if (gemId) equipGemToTargetWeapon(gemId);
+                    return;
+                }
+
+                const removeBtn = e.target.closest('.remove-gem-btn');
+                if (removeBtn) {
+                    const slot = parseInt(removeBtn.getAttribute('data-slot'), 10);
+                    if (!isNaN(slot)) removeGemFromTargetWeapon(slot);
+                    return;
+                }
+            });
         }
 
         // 9-4. 룬 각인 대상 무기 셀렉터 변경 시 프리뷰 즉시 업데이트

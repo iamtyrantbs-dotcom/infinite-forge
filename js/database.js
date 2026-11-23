@@ -748,8 +748,66 @@ const DUNGEONS_DATABASE = [
     }
 ];
 
+// ============================================================================
+// GEMS DATABASE (보석 소켓 시스템)
+// ============================================================================
+
+const GEMS_DATABASE = [
+    {
+        id: 'gem_ruby',
+        name: '화염의 루비',
+        icon: '🔴',
+        color: '#ef4444',
+        type: 'power',
+        desc: '장비 공격력 +25% 증가',
+        dropChance: 0.18,
+        costOre: 15
+    },
+    {
+        id: 'gem_sapphire',
+        name: '심해의 사파이어',
+        icon: '🔵',
+        color: '#3b82f6',
+        type: 'hp',
+        desc: '플레이어 최대 체력 +30% 증가',
+        dropChance: 0.15,
+        costOre: 15
+    },
+    {
+        id: 'gem_emerald',
+        name: '풍요의 에메랄드',
+        icon: '🟢',
+        color: '#10b981',
+        type: 'ore',
+        desc: '모루 타격 시 에테르 광석 드랍률 +15%',
+        dropChance: 0.12,
+        costOre: 20
+    },
+    {
+        id: 'gem_topaz',
+        name: '질주의 토파즈',
+        icon: '🟡',
+        color: '#f59e0b',
+        type: 'speed',
+        desc: 'RPG 모험 이동 속도 +20% 및 대시 쿨다운 -15%',
+        dropChance: 0.10,
+        costOre: 20
+    },
+    {
+        id: 'gem_diamond',
+        name: '초신성의 다이아몬드',
+        icon: '💎',
+        color: '#00e5ff',
+        type: 'crit',
+        desc: '크리티컬 확률 +12% 및 크리티컬 파워 +50%',
+        dropChance: 0.05,
+        costOre: 35
+    }
+];
+
 // 전역 내보내기 (다른 파일 및 메인 로직에서 참조)
 window.WEAPONS_DATABASE = WEAPONS_DATABASE;
 window.RUNES_DATABASE = RUNES_DATABASE;
 window.UPGRADES_DATABASE = UPGRADES_DATABASE;
 window.DUNGEONS_DATABASE = DUNGEONS_DATABASE;
+window.GEMS_DATABASE = GEMS_DATABASE;
