@@ -54,7 +54,12 @@
             safetyForge: 0,
             hyperCatalyst: 0,
             doubleStrike: 0,
-            celestialBounty: 0
+            celestialBounty: 0,
+            berserkOverdrive: 0,
+            heroicVitality: 0,
+            swiftStep: 0,
+            greatSuccessAura: 0,
+            infiniteSingularity: 0
         },
 
         // 던전 원정대 해금 (id -> level/unlocked)
@@ -238,22 +243,30 @@
         return upgDef ? upgDef.effect(upgLvl) : 1.0;
     }
 
+    function getInfiniteSingularityMult() {
+        const upgLvl = state.upgrades.infiniteSingularity || 0;
+        const upgDef = window.UPGRADES_DATABASE.find(u => u.id === 'infiniteSingularity');
+        return upgDef ? upgDef.effect(upgLvl) : 1.0;
+    }
+
     function computeWeaponItemPower(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
         if (!weaponDef) return 10;
         const advBuffMult = getAdventureBuffMultiplier();
         const codexMult = getCodexBonusMultiplier();
         const hyperMult = getHyperCatalystMult();
+        const infMult = getInfiniteSingularityMult();
         const runeBoost = runeDef ? runeDef.boost : 1.0;
         const enhanceMult = 1 + (enhancement * 0.35); // 강화 1당 +35% 공격력 증가
         const qualityMult = quality / 100;
 
-        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult * hyperMult);
+        return Math.floor(weaponDef.basePower * enhanceMult * qualityMult * runeBoost * advBuffMult * codexMult * hyperMult * infMult);
     }
 
     function computeWeaponSalvagePrice(weaponDef, enhancement = 0, quality = 100, runeDef = null) {
         const pwr = computeWeaponItemPower(weaponDef, enhancement, quality, runeDef);
         const anvilMult = getAnvilQualityBonus();
-        return Math.floor(pwr * 2.5 * anvilMult);
+        const infMult = getInfiniteSingularityMult();
+        return Math.floor(pwr * 2.5 * anvilMult * infMult);
     }
 
     function getEquippedWeapon() {
@@ -296,7 +309,9 @@
         // 진행도 가산
         let progressGain = getHammerProgressPerHit();
         if (isCritical) {
-            progressGain *= 3;
+            const berserkDef = window.UPGRADES_DATABASE.find(u => u.id === 'berserkOverdrive');
+            const critMul = berserkDef ? berserkDef.effect(state.upgrades.berserkOverdrive || 0) : 3.0;
+            progressGain = Math.floor(progressGain * critMul);
         }
 
         // 신의 망치질 (더블 타격 업그레이드)
@@ -995,6 +1010,12 @@
         const bonusSuccess = masterDef ? masterDef.effect(state.upgrades.smithMastery || 0) : 0;
         success += bonusSuccess;
 
+        // 신규 업그레이드: 초월적 담금질 기운 (대성공 확률 증가)
+        const greatAuraDef = window.UPGRADES_DATABASE.find(u => u.id === 'greatSuccessAura');
+        if (greatAuraDef) {
+            great += greatAuraDef.effect(state.upgrades.greatSuccessAura || 0);
+        }
+
         // 20스테이지 클리어 버프: 강화 성공률 +3%
         if (state.adventure && state.adventure.earnedBuffs && state.adventure.earnedBuffs.includes(20)) {
             success += 0.03;
@@ -1355,11 +1376,22 @@
 
         // 플레이어 기본 체력 및 버프 반영
         let playerMaxHp = 100 + Math.floor(basePlayerPower * 0.5);
+        const vitalityDef = window.UPGRADES_DATABASE.find(u => u.id === 'heroicVitality');
+        if (vitalityDef) {
+            playerMaxHp = Math.floor(playerMaxHp * vitalityDef.effect(state.upgrades.heroicVitality || 0));
+        }
         if (state.adventure.earnedBuffs.includes(5)) playerMaxHp = Math.floor(playerMaxHp * 1.25);
         if (state.adventure.earnedBuffs.includes(15)) playerMaxHp = Math.floor(playerMaxHp * 1.50);
         if (state.adventure.earnedBuffs.includes(30)) playerMaxHp = Math.floor(playerMaxHp * 3.00);
 
         let playerSpeed = 160;
+        let playerSwingDuration = 0.22;
+        const swiftDef = window.UPGRADES_DATABASE.find(u => u.id === 'swiftStep');
+        if (swiftDef) {
+            const sEff = swiftDef.effect(state.upgrades.swiftStep || 0);
+            playerSpeed = Math.floor(playerSpeed * (1 + sEff.speedBonus));
+            playerSwingDuration = Math.max(0.12, 0.22 * (1 - sEff.swingReduction));
+        }
         if (state.adventure.earnedBuffs.includes(20)) playerSpeed = Math.floor(playerSpeed * 1.20);
 
         // 몬스터 생성 (미니언들 + 보스)
@@ -1391,7 +1423,7 @@
                 size: 18,
                 atk: Math.max(15, Math.floor(basePlayerPower * 0.8)),
                 swingTimer: 0,
-                swingDuration: 0.22,
+                swingDuration: playerSwingDuration,
                 weaponIcon: wDef ? wDef.icon : '🗡️',
                 weaponName: wDef ? wDef.name : '기본 단검'
             },
@@ -2294,9 +2326,10 @@
         // 원정대 초당 자동 생산
         let passiveGold = 0;
         let passiveOre = 0;
+        const infMult = getInfiniteSingularityMult();
         window.DUNGEONS_DATABASE.forEach(d => {
             if ((state.dungeons[d.id] || 0) > 0) {
-                passiveGold += d.goldPerSec;
+                passiveGold += d.goldPerSec * infMult;
                 passiveOre += d.orePerSec;
             }
         });

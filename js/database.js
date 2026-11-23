@@ -385,8 +385,8 @@ const UPGRADES_DATABASE = [
         title: '헤비 오리하르콘 해머',
         desc: '타격당 제련 진행도를 +2% 추가 상승시킵니다.',
         baseCost: 35,
-        costMul: 1.32,
-        maxLevel: 50,
+        costMul: 1.25,
+        maxLevel: 100,
         effect: (lvl) => lvl * 2
     },
     {
@@ -394,35 +394,35 @@ const UPGRADES_DATABASE = [
         title: '미스릴 합금 모루',
         desc: '무기 분해 시 회수하는 골드 가치를 +12% 증가시킵니다.',
         baseCost: 80,
-        costMul: 1.35,
-        maxLevel: 50,
+        costMul: 1.28,
+        maxLevel: 100,
         effect: (lvl) => lvl * 0.12
     },
     {
         id: 'bellowsSpeed',
         title: '지옥불 자동 풀무 (Auto)',
-        desc: '자동 망치질 속도를 단축합니다. (최소 0.35초 간격)',
+        desc: '자동 망치질 속도를 단축합니다. (최소 0.20초 간격)',
         baseCost: 250,
-        costMul: 1.40,
-        maxLevel: 30,
-        effect: (lvl) => Math.max(0.35, 1.20 - (lvl * 0.028))
+        costMul: 1.35,
+        maxLevel: 50,
+        effect: (lvl) => Math.max(0.20, 1.20 - (lvl * 0.022))
     },
     {
         id: 'oreMagnet',
         title: '에테르 광맥 유도기',
-        desc: '모루 타격 시 에테르 광석이 드랍될 확률을 +2% 증가시킵니다. (최대 50%)',
+        desc: '모루 타격 시 에테르 광석이 드랍될 확률을 +1.5% 증가시킵니다. (최대 65%)',
         baseCost: 350,
-        costMul: 1.38,
-        maxLevel: 25,
-        effect: (lvl) => Math.min(0.50, lvl * 0.02)
+        costMul: 1.35,
+        maxLevel: 40,
+        effect: (lvl) => Math.min(0.65, lvl * 0.015)
     },
     {
         id: 'qualityMastery',
         title: '담금질 장인의 손길',
         desc: '제련 완성 시 무기의 기본 품질(Quality)을 +2.5% 상승시킵니다.',
         baseCost: 600,
-        costMul: 1.35,
-        maxLevel: 40,
+        costMul: 1.30,
+        maxLevel: 80,
         effect: (lvl) => lvl * 2.5
     },
     {
@@ -430,26 +430,26 @@ const UPGRADES_DATABASE = [
         title: '축복받은 불꽃 제련',
         desc: '무기 제련 시 고강화 보너스 수치(+1 ~ +7)가 붙을 확률이 상승합니다.',
         baseCost: 1500,
-        costMul: 1.45,
-        maxLevel: 20,
+        costMul: 1.40,
+        maxLevel: 40,
         effect: (lvl) => lvl * 0.05
     },
     {
         id: 'criticalStrike',
         title: '벼림의 크리티컬',
-        desc: '모루 타격 시 3배 파워의 크리티컬 발동 확률을 +2% 증가시킵니다. (최대 50%)',
+        desc: '모루 타격 시 3배 파워의 크리티컬 발동 확률을 +1.5% 증가시킵니다. (최대 65%)',
         baseCost: 2500,
-        costMul: 1.45,
-        maxLevel: 20,
-        effect: (lvl) => Math.min(0.50, lvl * 0.02)
+        costMul: 1.40,
+        maxLevel: 35,
+        effect: (lvl) => Math.min(0.65, lvl * 0.015)
     },
     {
         id: 'ancientWhisper',
         title: '고대 대장장이의 비전서',
         desc: '고티어(Rare 이상) 무기가 제련될 확률을 레벨당 +10%씩 곱연산 상승시킵니다.',
         baseCost: 8000,
-        costMul: 1.55,
-        maxLevel: 15,
+        costMul: 1.50,
+        maxLevel: 30,
         effect: (lvl) => 1 + (lvl * 0.10)
     },
     {
@@ -457,55 +457,101 @@ const UPGRADES_DATABASE = [
         title: '천상의 운명 공명 (Divine Destiny)',
         desc: '모든 등급의 상위 무기(Uncommon부터 Godly까지)가 등장할 확률 가중치를 레벨당 +20%씩 폭발적으로 증폭합니다.',
         baseCost: 12000,
-        costMul: 1.50,
-        maxLevel: 25,
+        costMul: 1.45,
+        maxLevel: 45,
         effect: (lvl) => 1 + (lvl * 0.20)
     },
-    // --- 신규 상위 업그레이드 5종 (High-tier Expansion) ---
+    // --- 상위 업그레이드 (High-tier Expansion) ---
     {
         id: 'smithMastery',
         title: '신성 대장장이의 담금질',
-        desc: '대장장이 탭에서 무기 강화 성공 확률을 레벨당 +1% 상승시킵니다. (최대 +10%)',
+        desc: '대장장이 탭에서 무기 강화 성공 확률을 레벨당 +0.8% 상승시킵니다. (최대 +16%)',
         baseCost: 15000,
-        costMul: 1.60,
-        maxLevel: 10,
-        effect: (lvl) => lvl * 0.01
+        costMul: 1.55,
+        maxLevel: 20,
+        effect: (lvl) => lvl * 0.008
     },
     {
         id: 'safetyForge',
         title: '불멸의 방호 모루',
-        desc: '대장장이 강화 실패 시 강화 단계가 0으로 초기화(파괴)될 확률을 레벨당 -2% 감소시킵니다.',
+        desc: '대장장이 강화 실패 시 강화 단계가 0으로 초기화(파괴)될 확률을 레벨당 -1.5% 감소시킵니다. (최대 -30%)',
         baseCost: 28000,
-        costMul: 1.62,
-        maxLevel: 10,
-        effect: (lvl) => lvl * 0.02
+        costMul: 1.55,
+        maxLevel: 20,
+        effect: (lvl) => lvl * 0.015
     },
     {
         id: 'hyperCatalyst',
         title: '하이퍼 에테르 촉매',
         desc: '모든 장비의 최종 공격력(Power)을 레벨당 영구 +6% 증폭시킵니다.',
         baseCost: 65000,
-        costMul: 1.65,
-        maxLevel: 15,
+        costMul: 1.55,
+        maxLevel: 35,
         effect: (lvl) => 1 + (lvl * 0.06)
     },
     {
         id: 'doubleStrike',
         title: '신의 망치질 (더블 타격)',
-        desc: '모루 타격 시 레벨당 2.5% 확률로 1타에 2회의 타격 판정이 발생합니다.',
+        desc: '모루 타격 시 레벨당 2% 확률로 1타에 2회의 타격 판정이 발생합니다. (최대 50%)',
         baseCost: 150000,
-        costMul: 1.70,
-        maxLevel: 12,
-        effect: (lvl) => Math.min(0.30, lvl * 0.025)
+        costMul: 1.60,
+        maxLevel: 25,
+        effect: (lvl) => Math.min(0.50, lvl * 0.02)
     },
     {
         id: 'celestialBounty',
         title: '천상계의 에테르 축복',
         desc: '모든 경로(모루, 원정대, 모험)에서 얻는 에테르 광석(ORE) 획득량을 레벨당 +15% 증폭합니다.',
         baseCost: 350000,
-        costMul: 1.75,
-        maxLevel: 10,
+        costMul: 1.62,
+        maxLevel: 25,
         effect: (lvl) => 1 + (lvl * 0.15)
+    },
+    // --- 🌟 신규 대규모 확장 업그레이드 5종 (New End-game Upgrades) ---
+    {
+        id: 'berserkOverdrive',
+        title: '광전사의 오버드라이브',
+        desc: '모루 크리티컬 발생 시 진행도 증가량이 기존 3배에서 레벨당 +0.25배씩 추가 상승합니다.',
+        baseCost: 500000,
+        costMul: 1.65,
+        maxLevel: 20,
+        effect: (lvl) => 3.0 + (lvl * 0.25)
+    },
+    {
+        id: 'heroicVitality',
+        title: '영웅의 불멸 심장',
+        desc: '실시간 RPG 모험 모드에서 플레이어의 기본 최대 체력(Max HP)이 레벨당 +10%씩 영구 증가합니다.',
+        baseCost: 850000,
+        costMul: 1.65,
+        maxLevel: 25,
+        effect: (lvl) => 1 + (lvl * 0.10)
+    },
+    {
+        id: 'swiftStep',
+        title: '신속의 헤르메스 부츠',
+        desc: '실시간 RPG 모험 모드에서 캐릭터 이동 속도가 레벨당 +3%, 공격 쿨다운이 -1.5% 단축됩니다.',
+        baseCost: 1200000,
+        costMul: 1.68,
+        maxLevel: 15,
+        effect: (lvl) => ({ speedBonus: lvl * 0.03, swingReduction: Math.min(0.35, lvl * 0.015) })
+    },
+    {
+        id: 'greatSuccessAura',
+        title: '초월적 담금질 기운',
+        desc: '대장장이 강화 시 +2단계 상승하는 대성공(Great Success) 확률이 레벨당 +1% 상승합니다. (최대 +15%)',
+        baseCost: 3000000,
+        costMul: 1.70,
+        maxLevel: 15,
+        effect: (lvl) => lvl * 0.01
+    },
+    {
+        id: 'infiniteSingularity',
+        title: '무한 특이점의 축복',
+        desc: '모든 무기 공격력, 분해 골드 수익, 원정대 파시브 골드 수입이 레벨당 +8% 영구 복합 증폭됩니다.',
+        baseCost: 10000000,
+        costMul: 1.75,
+        maxLevel: 20,
+        effect: (lvl) => 1 + (lvl * 0.08)
     }
 ];
 
