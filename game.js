@@ -1023,7 +1023,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // 6-1. BLACKSMITH ENHANCEMENT SYSTEM (대장장이 +20강 한계돌파)
+    // 6-1. BLACKSMITH ENHANCEMENT SYSTEM (대장장이 +30강 한계돌파)
     // ------------------------------------------------------------------------
 
     // 강화 단계별 기본 확률표 (성공, 대성공, 유지, 하락, 파괴/초기화)
@@ -1048,8 +1048,14 @@
             success = 0.25; great = 0.03; maintain = 0.35; down = 0.27; broken = 0.10;
         } else if (currentLvl <= 18) {
             success = 0.15; great = 0.02; maintain = 0.35; down = 0.33; broken = 0.15;
-        } else { // 19강 -> 20강 극악 난이도
-            success = 0.08; great = 0.01; maintain = 0.35; down = 0.36; broken = 0.20;
+        } else if (currentLvl <= 21) {
+            success = 0.10; great = 0.015; maintain = 0.35; down = 0.35; broken = 0.185;
+        } else if (currentLvl <= 25) {
+            success = 0.06; great = 0.01; maintain = 0.35; down = 0.36; broken = 0.22;
+        } else if (currentLvl <= 28) {
+            success = 0.035; great = 0.005; maintain = 0.35; down = 0.36; broken = 0.25;
+        } else { // 29강 -> 30강 초월 신화 난이도
+            success = 0.015; great = 0.002; maintain = 0.35; down = 0.353; broken = 0.28;
         }
 
         // 업그레이드 보너스 적용
@@ -1164,8 +1170,8 @@
         if (currEnhEl) currEnhEl.innerText = `+${item.enhancement}`;
         if (pwrEl) pwrEl.innerText = formatNumber(item.power);
 
-        const isMax = item.enhancement >= 20;
-        if (nextEnhEl) nextEnhEl.innerText = isMax ? 'MAX (+20)' : `+${item.enhancement + 1}`;
+        const isMax = item.enhancement >= 30;
+        if (nextEnhEl) nextEnhEl.innerText = isMax ? 'MAX (+30)' : `+${item.enhancement + 1}`;
 
         const odds = getEnhanceOdds(item.enhancement);
         document.getElementById('smith-prob-success').innerText = `${Math.round(odds.success * 100)}%`;
@@ -1181,7 +1187,7 @@
         if (btn) {
             if (isMax) {
                 btn.disabled = true;
-                btn.innerText = '🏆 이미 최고 강화 단계 (+20)에 도달했습니다!';
+                btn.innerText = '🏆 이미 최고 강화 단계 (+30)에 도달했습니다!';
             } else {
                 const canAfford = state.gold >= cost.gold && state.ore >= cost.ore;
                 btn.disabled = !canAfford;
@@ -1199,14 +1205,16 @@
 
         if (!item.gems) item.gems = [];
 
-        // 해금 가능한 소켓 수 계산 (+5강: 1슬롯, +10강: 2슬롯, +15강: 3슬롯)
+        // 해금 가능한 소켓 수 계산 (+5강: 1슬롯, +10강: 2슬롯, +15강: 3슬롯, +20강: 4슬롯, +25강: 5슬롯)
         let maxSockets = 0;
-        if (item.enhancement >= 15) maxSockets = 3;
+        if (item.enhancement >= 25) maxSockets = 5;
+        else if (item.enhancement >= 20) maxSockets = 4;
+        else if (item.enhancement >= 15) maxSockets = 3;
         else if (item.enhancement >= 10) maxSockets = 2;
         else if (item.enhancement >= 5) maxSockets = 1;
 
         slotsRow.innerHTML = '';
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 5; i++) {
             const isUnlocked = i < maxSockets;
             const gemId = item.gems[i] || null;
             const gemDef = gemId ? window.GEMS_DATABASE.find(g => g.id === gemId) : null;
@@ -1252,7 +1260,7 @@
         const selector = document.getElementById('smith-target-select');
         const uid = selector ? selector.value : null;
         const item = state.inventory.find(i => i.uid === uid);
-        if (!item || item.enhancement >= 20) return;
+        if (!item || item.enhancement >= 30) return;
 
         const cost = getEnhanceCost(item.enhancement);
         if (state.gold < cost.gold || state.ore < cost.ore) {
@@ -1277,7 +1285,7 @@
             resultType = 'success';
         } else if (roll < odds.success + odds.great) {
             // 대성공 (+2)
-            item.enhancement = Math.min(20, item.enhancement + 2);
+            item.enhancement = Math.min(30, item.enhancement + 2);
             resultType = 'great';
         } else if (roll < odds.success + odds.great + odds.maintain) {
             // 유지
@@ -1343,7 +1351,9 @@
         if (!item) return;
 
         let maxSockets = 0;
-        if (item.enhancement >= 15) maxSockets = 3;
+        if (item.enhancement >= 25) maxSockets = 5;
+        else if (item.enhancement >= 20) maxSockets = 4;
+        else if (item.enhancement >= 15) maxSockets = 3;
         else if (item.enhancement >= 10) maxSockets = 2;
         else if (item.enhancement >= 5) maxSockets = 1;
 
