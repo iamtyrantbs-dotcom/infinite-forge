@@ -152,6 +152,11 @@
         showToast(message, type);
     }
 
+    function showSalvageToast(message, type = 'info') {
+        if (!state.settings.showCraftToast) return;
+        showToast(message, type);
+    }
+
     // ------------------------------------------------------------------------
     // 3. CORE CALCULATIONS & MULTIPLIERS
     // ------------------------------------------------------------------------
@@ -736,7 +741,7 @@
         state.totalSalvages++;
         window.SoundFX.playCoinSound();
 
-        showToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(goldGain)} 골드 획득)`, 'success');
+        showSalvageToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(goldGain)} 골드 획득)`, 'success');
 
         resetWorkbench(true); // 100% 초과 나머지 진행도 보존
         updateUI();
@@ -791,7 +796,7 @@
         }
 
         state.inventory.splice(index, 1);
-        showToast(`💰 [${wDef.name}] 판매 완료! (+${formatNumber(price)} 골드)`, 'info');
+        showSalvageToast(`💰 [${wDef.name}] 판매 완료! (+${formatNumber(price)} 골드)`, 'info');
 
         // 판매 즉시 인벤토리 뷰 갱신하여 화면에서 사라지게 처리
         renderInventoryList();
@@ -830,7 +835,7 @@
         state.totalSalvages += unlockedItems.length;
         window.SoundFX.playCoinSound();
 
-        showToast(`💰 잠금 외 무기 ${unlockedItems.length}개 일괄 판매 완료! (+${formatNumber(totalGold)} 골드)`, 'success');
+        showSalvageToast(`💰 잠금 외 무기 ${unlockedItems.length}개 일괄 판매 완료! (+${formatNumber(totalGold)} 골드)`, 'success');
         renderInventoryList();
         updateUI();
         autoSave();
