@@ -339,10 +339,12 @@
             }
         }
 
-        // 100% 이상 도달 시 제련 완성 판정 (프로그래스가 누적되어 600% 등 한 번에 쌓일 경우 누적된 횟수만큼 연속 뽑기)
+        // 100% 이상 도달 시 제련 완성 판정 (100% 초과분은 나머지로 보존, 연속 뽑기 지원)
         if (state.forgeProgress >= 100) {
             const rollCount = Math.floor(state.forgeProgress / 100);
-            state.forgeProgress = state.forgeProgress % 100;
+            const remainder = state.forgeProgress % 100;
+            state.forgeProgress = remainder; // 나머지 먼저 저장
+
             for (let i = 0; i < rollCount; i++) {
                 onWeaponCraftComplete(i === rollCount - 1, rollCount);
             }
@@ -432,7 +434,47 @@
         autoSave();
 
         // 7. 스마트 자동 분류 (Auto-Filter) 판정 및 즉시 처리
-        checkAutoFilterTrigger(selectedWeapon, currentPwr);
+        // 자동 분류가 켜진 경우 필터 판정, 꺼진 경우 무기를 자동으로 인벤토리에 보관
+        if (state.autoFilter && state.autoFilter.enabled) {
+            checkAutoFilterTrigger(selectedWeapon, currentPwr);
+        } else {
+            // 자동 분류 OFF: 인벤토리에 자동 보관 (인벤이 가득 차면 자동 분해)
+            if (state.inventory.length >= state.maxInventorySlots) {
+                // 인벤토리 가득 참 → 분해로 처리
+                const wDef2 = window.WEAPONS_DATABASE.find(w => w.id === state.currentWeaponId);
+                const rDef2 = getRuneDef(state.activeRuneId);
+                const goldGain = computeWeaponSalvagePrice(wDef2, state.currentEnhancement, state.currentQuality, rDef2);
+                state.gold += goldGain;
+                state.totalSalvages++;
+                showCraftToast(`♻️ [인벤 가득] ${selectedWeapon.name} 자동 분해! (+${formatNumber(goldGain)} 🪙)`, 'warning');
+                window.SoundFX.playCoinSound();
+                resetWorkbench(true);
+                renderInventoryList();
+                updateUI();
+            } else {
+                // 인벤토리에 자동 보관
+                const rDef2 = getRuneDef(state.activeRuneId);
+                const pwr2 = computeWeaponItemPower(selectedWeapon, state.currentEnhancement, state.currentQuality, rDef2);
+                const newItem = {
+                    uid: generateUID(),
+                    id: selectedWeapon.id,
+                    enhancement: state.currentEnhancement,
+                    quality: state.currentQuality,
+                    runeId: state.activeRuneId,
+                    power: pwr2,
+                    locked: false,
+                    forgedAt: Date.now()
+                };
+                state.inventory.push(newItem);
+                if (!state.equippedWeaponUid) {
+                    state.equippedWeaponUid = newItem.uid;
+                }
+                showCraftToast(`🎒 [${selectedWeapon.name}] 인벤토리에 자동 보관!`, 'success');
+                resetWorkbench(true);
+                renderInventoryList();
+                updateUI();
+            }
+        }
     }
 
     // 티어 순위 맵 (Common < Uncommon < Rare < Epic < Legendary < Mythic < Godly)
@@ -467,12 +509,17 @@
                 showCraftToast(`⚠️ [자동 보관 실패] 인벤토리가 가득 차 작업대에 보관되었습니다!`, 'warning');
             } else {
                 showCraftToast(`🛡️ [자동 보관] 기준 충족: ${weaponDef.name} (+${state.currentEnhancement}, ${state.currentQuality}%)`, 'success');
+                // 나머지 진행도 보존 후 복원
+                const savedProgress = state.forgeProgress;
                 claimCurrentWeaponToInventory();
+                state.forgeProgress = savedProgress;
             }
         } else {
             // 기준 미달: 자동 분해(판매)
             showCraftToast(`♻️ [자동 분해] 필터 미달 무기를 골드로 환전했습니다.`, 'info');
+            const savedProgress = state.forgeProgress;
             salvageCurrentWeapon();
+            state.forgeProgress = savedProgress;
         }
     }
 
@@ -612,8 +659,8 @@
         showCraftToast(`🎒 [${wDef.name} +${state.currentEnhancement}] 보관함에 저장되었습니다!`, 'success');
         window.SoundFX.playBuySound();
 
-        // 작업대 상태 리셋 (새 무기 제작 준비)
-        resetWorkbench();
+        // 작업대 상태 리셋 (100% 초과 나머지 진행도 보존)
+        resetWorkbench(true);
         renderInventoryList();
         updateUI();
         autoSave();
@@ -636,14 +683,17 @@
 
         showToast(`💰 [${wDef.name}] 분해 완료! (+${formatNumber(goldGain)} 골드 획득)`, 'success');
 
-        resetWorkbench();
+        resetWorkbench(true); // 100% 초과 나머지 진행도 보존
         updateUI();
         autoSave();
     }
 
-    function resetWorkbench() {
+    function resetWorkbench(preserveProgress = false) {
         state.isCraftingComplete = false;
-        state.forgeProgress = 0;
+        // preserveProgress=true일 때는 forgeProgress를 초기화하지 않음 (100% 초과 나머지 보존)
+        if (!preserveProgress) {
+            state.forgeProgress = 0;
+        }
         state.currentWeaponId = 'w_rusty_dagger';
         state.currentEnhancement = 0;
         state.currentQuality = 100;
