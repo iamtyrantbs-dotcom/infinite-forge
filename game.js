@@ -902,7 +902,7 @@
             triggerRuneCutscene(selectedRune);
         }
 
-        showToast(`🔮 [${targetWeaponName}]에 고대 룬 [${selectedRune.name}] 각인 완료!`, 'success');
+        showCraftToast(`🔮 [${targetWeaponName}]에 고대 룬 [${selectedRune.name}] 각인 완료!`, 'success');
         renderInventoryList();
         renderRuneTargetSelector();
         updateUI();
@@ -967,7 +967,7 @@
                 return;
             }
 
-            autoRuneTimer = setTimeout(step, 160); // 0.16초 주기로 연속 각인
+            autoRuneTimer = setTimeout(step, 40); // 0.04초(25회/초) 초고속 주기 연속 각인
         }
 
         step();
