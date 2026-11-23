@@ -288,6 +288,60 @@ const WEAPONS_DATABASE = [
         color: '#ff00ff',
         lore: '모든 평행우주와 차원의 힘이 하나로 모인 궁극의 형상. 이 검을 쥔 자가 곧 우주의 법칙이 된다.',
         cutscene: true
+    },
+
+    // Tier 8: Transcendent (초월계 / 전능)
+    {
+        id: 'w_entropy_annihilator',
+        name: '엔트로피 종말검',
+        engName: 'Entropy Annihilator',
+        icon: '🌌',
+        basePower: 280000000,
+        rarityRate: '1/30,000,000 (0.0000033%)',
+        weight: 0.000009,
+        tier: 'Transcendent',
+        color: '#38bdf8',
+        lore: '열역학적 죽음과 우주 엔트로피의 극점에 도달한 종말의 검. 베어진 대상의 존재 자체가 영원히 침식된다.',
+        cutscene: true
+    },
+    {
+        id: 'w_cosmic_creation_hammer',
+        name: '우주 창조의 크리에이터',
+        engName: 'Cosmic Creation Hammer',
+        icon: '🔨',
+        basePower: 950000000,
+        rarityRate: '1/80,000,000 (0.00000125%)',
+        weight: 0.000003,
+        tier: 'Transcendent',
+        color: '#a855f7',
+        lore: '별자리를 벼려 은하를 빚어낸 태초 대장장이의 성망치. 모든 차원의 광물과 시공간을 자유자재로 재조합한다.',
+        cutscene: true
+    },
+    {
+        id: 'w_dark_matter_scythe',
+        name: '암흑물질 보이드 낫',
+        engName: 'Dark Matter Void Scythe',
+        icon: '🌙',
+        basePower: 3200000000,
+        rarityRate: '1/250,000,000 (0.0000004%)',
+        weight: 0.000001,
+        tier: 'Transcendent',
+        color: '#e11d48',
+        lore: '우주의 95%를 채우는 보이지 않는 암흑 에너지로 벼린 사신의 대낫. 차원의 장벽을 무자비하게 절단한다.',
+        cutscene: true
+    },
+    {
+        id: 'w_omnipotent_overlord_blade',
+        name: '전능자의 절대 패권검',
+        engName: 'Omnipotent Overlord Blade',
+        icon: '👑',
+        basePower: 12000000000,
+        rarityRate: '1/1,000,000,000 (0.0000001%)',
+        weight: 0.0000003,
+        tier: 'Transcendent',
+        color: '#fbbf24',
+        lore: '시공간, 인과율, 물리 법칙 전체를 발아래에 두는 전지전능한 지배자의 왕검.',
+        cutscene: true
     }
 ];
 
@@ -371,6 +425,28 @@ const RUNES_DATABASE = [
         color: '#ec4899',
         tier: 'Godly',
         desc: '무기 공격력 +7900% 폭발적 증가 및 원정대 DPS 5배',
+        cutscene: true
+    },
+    {
+        id: 'r_transcendence',
+        name: '초월적 섭리의 룬',
+        prefix: '초월자의 (Transcendent)',
+        boost: 350.0,
+        weight: 0.015,
+        color: '#38bdf8',
+        tier: 'Transcendent',
+        desc: '무기 공격력 +34,900% 초월적 증폭 및 RPG 모든 데미지 3배',
+        cutscene: true
+    },
+    {
+        id: 'r_omnipotence',
+        name: '전능자의 창조 룬',
+        prefix: '전능한 (Omnipotent)',
+        boost: 1500.0,
+        weight: 0.002,
+        color: '#fbbf24',
+        tier: 'Transcendent',
+        desc: '무기 공격력 +149,900% 절대 증폭 및 대장간 강화 성공률 +10%',
         cutscene: true
     }
 ];

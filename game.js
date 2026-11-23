@@ -168,7 +168,17 @@
     function getCodexBonusMultiplier() {
         // 도감에 등록된 고유 무기 1종당 +2% 영구 생산 보너스
         const totalDiscovered = Object.keys(state.codex).length;
-        return 1 + (totalDiscovered * 0.02);
+        let bonus = totalDiscovered * 0.02;
+
+        // 세트 완성 보너스
+        const allWeapons = window.WEAPONS_DATABASE || [];
+        const isGodlyComplete = allWeapons.filter(w => w.tier === 'Godly').every(w => state.codex[w.id]);
+        if (isGodlyComplete) bonus += 0.50; // 신급 세트 완성 보너스: +50%
+
+        const isTranscendentComplete = allWeapons.filter(w => w.tier === 'Transcendent').every(w => state.codex[w.id]);
+        if (isTranscendentComplete) bonus += 1.50; // 초월 세트 완성 보너스: +150%
+
+        return 1 + bonus;
     }
 
     function getHammerProgressPerHit() {
@@ -492,7 +502,7 @@
         }
     }
 
-    // 티어 순위 맵 (Common < Uncommon < Rare < Epic < Legendary < Mythic < Godly)
+    // 티어 순위 맵 (Common < Uncommon < Rare < Epic < Legendary < Mythic < Godly < Transcendent)
     const TIER_ORDER = {
         'Common': 1,
         'Uncommon': 2,
@@ -500,7 +510,8 @@
         'Epic': 4,
         'Legendary': 5,
         'Mythic': 6,
-        'Godly': 7
+        'Godly': 7,
+        'Transcendent': 8
     };
 
     function checkAutoFilterTrigger(weaponDef, power) {
@@ -1278,7 +1289,7 @@
 
     let adventureBattleState = null;
     let adventureAnimFrame = null;
-    const playerKeys = { w: false, a: false, s: false, d: false, space: false };
+    const playerKeys = { w: false, a: false, s: false, d: false, space: false, shift: false, e: false };
 
     function selectAdventureStage(stageNum) {
         const totalStages = window.STAGES_DATABASE.length;
@@ -1420,10 +1431,15 @@
                 hp: playerMaxHp,
                 maxHp: playerMaxHp,
                 speed: playerSpeed,
+                baseSpeed: playerSpeed,
                 size: 18,
                 atk: Math.max(15, Math.floor(basePlayerPower * 0.8)),
                 swingTimer: 0,
                 swingDuration: playerSwingDuration,
+                dashCooldown: 0,
+                dashDuration: 0,
+                isInvincible: false,
+                swordBeamCooldown: 0,
                 weaponIcon: wDef ? wDef.icon : '🗡️',
                 weaponName: wDef ? wDef.name : '기본 단검'
             },
@@ -1442,6 +1458,8 @@
             },
             minions,
             particles: [],
+            projectiles: [],
+            telegraphs: [],
             floatingTexts: []
         };
 
@@ -1491,6 +1509,18 @@
 
         const p = b.player;
 
+        // 플레이어 쿨다운 감소
+        if (p.dashCooldown > 0) p.dashCooldown -= dt;
+        if (p.swordBeamCooldown > 0) p.swordBeamCooldown -= dt;
+        if (p.dashDuration > 0) {
+            p.dashDuration -= dt;
+            p.isInvincible = true;
+            if (p.dashDuration <= 0) {
+                p.speed = p.baseSpeed;
+                p.isInvincible = false;
+            }
+        }
+
         // 플레이어 이동 (WASD)
         let dx = 0;
         let dy = 0;
@@ -1504,6 +1534,16 @@
             dy *= 0.7071;
         }
 
+        // 대시 발동 (Shift 키)
+        if (playerKeys.shift && p.dashCooldown <= 0 && (dx !== 0 || dy !== 0)) {
+            performPlayerDash(dx, dy);
+        }
+
+        // 검기 스킬 발동 (E 키)
+        if (playerKeys.e && p.swordBeamCooldown <= 0) {
+            performPlayerSwordBeam();
+        }
+
         p.x = Math.max(p.size, Math.min(600 - p.size, p.x + dx * p.speed * dt));
         p.y = Math.max(p.size, Math.min(340 - p.size, p.y + dy * p.speed * dt));
 
@@ -1513,6 +1553,63 @@
         }
         if (playerKeys.space && p.swingTimer <= 0) {
             performPlayerAttack();
+        }
+
+        // 투사체 (검기 등) 업데이트
+        if (b.projectiles) {
+            b.projectiles.forEach(proj => {
+                proj.x += proj.vx * dt;
+                proj.y += proj.vy * dt;
+                proj.life -= dt;
+
+                // 보스 충돌
+                const bDist = Math.hypot(b.boss.x - proj.x, b.boss.y - proj.y);
+                if (!proj.hitBoss && bDist <= proj.size + b.boss.size) {
+                    proj.hitBoss = true;
+                    b.boss.hp -= proj.dmg;
+                    b.floatingTexts.push({
+                        x: b.boss.x,
+                        y: b.boss.y - 35,
+                        text: `⚡ BEAM ${formatNumber(proj.dmg)}!`,
+                        color: '#38bdf8',
+                        life: 0.9
+                    });
+                }
+                // 미니언 충돌
+                b.minions.forEach(m => {
+                    if (m.hp <= 0) return;
+                    const mDist = Math.hypot(m.x - proj.x, m.y - proj.y);
+                    if (mDist <= proj.size + m.size) {
+                        m.hp -= proj.dmg;
+                        b.floatingTexts.push({
+                            x: m.x,
+                            y: m.y - 20,
+                            text: `${formatNumber(proj.dmg)}`,
+                            color: '#38bdf8',
+                            life: 0.6
+                        });
+                    }
+                });
+            });
+            b.projectiles = b.projectiles.filter(proj => proj.life > 0 && proj.x >= 0 && proj.x <= 600 && proj.y >= 0 && proj.y <= 340);
+        }
+
+        // 보스 특수 바닥 장판(Telegraph) 업데이트
+        if (b.telegraphs) {
+            b.telegraphs.forEach(t => {
+                t.delay -= dt;
+                if (t.delay <= 0 && !t.exploded) {
+                    t.exploded = true;
+                    // 폭발 시 플레이어가 범위 내에 있고 무적 상태가 아니면 데미지
+                    const distToPlayer = Math.hypot(p.x - t.x, p.y - t.y);
+                    if (distToPlayer <= t.radius && !p.isInvincible) {
+                        p.hp -= t.dmg;
+                        b.floatingTexts.push({ x: p.x, y: p.y - 25, text: `💥 AOE -${t.dmg}`, color: '#ef4444', life: 0.9 });
+                        window.SoundFX.playAnvilHit(true);
+                    }
+                }
+            });
+            b.telegraphs = b.telegraphs.filter(t => t.delay > -0.3);
         }
 
         // 보스 AI
@@ -1527,16 +1624,38 @@
                 boss.y += (bdy / bDist) * boss.speed * dt;
             }
 
+            // 5스테이지 주기 보스: 주기적 바닥 광역기 장판 시전 기믹
+            if (b.stageDef.stage % 5 === 0) {
+                if (!boss.skillTimer) boss.skillTimer = 4.0;
+                boss.skillTimer -= dt;
+                if (boss.skillTimer <= 0) {
+                    boss.skillTimer = 5.5;
+                    b.telegraphs.push({
+                        x: p.x,
+                        y: p.y,
+                        radius: 55,
+                        delay: 1.2,
+                        dmg: Math.floor(boss.atk * 1.5),
+                        exploded: false
+                    });
+                    b.floatingTexts.push({ x: boss.x, y: boss.y - 45, text: `⚠️ 광역 폭발 경고!`, color: '#f59e0b', life: 1.0 });
+                }
+            }
+
             boss.attackCooldown -= dt;
             if (boss.attackCooldown <= 0 && bDist < 55) {
                 boss.attackCooldown = 1.2;
-                p.hp -= boss.atk;
-                b.floatingTexts.push({ x: p.x, y: p.y - 20, text: `-${boss.atk}`, color: '#ff3344', life: 0.8 });
-                window.SoundFX.playAnvilHit(true);
+                if (!p.isInvincible) {
+                    p.hp -= boss.atk;
+                    b.floatingTexts.push({ x: p.x, y: p.y - 20, text: `-${boss.atk}`, color: '#ff3344', life: 0.8 });
+                    window.SoundFX.playAnvilHit(true);
 
-                if (p.hp <= 0) {
-                    endAdventureBattle(false, `💀 보스 [${boss.name}]에게 쓰러졌습니다!`);
-                    return;
+                    if (p.hp <= 0) {
+                        endAdventureBattle(false, `💀 보스 [${boss.name}]에게 쓰러졌습니다!`);
+                        return;
+                    }
+                } else {
+                    b.floatingTexts.push({ x: p.x, y: p.y - 20, text: `🛡️ 회피!`, color: '#38bdf8', life: 0.6 });
                 }
             }
         }
@@ -1556,12 +1675,14 @@
             m.attackCooldown -= dt;
             if (m.attackCooldown <= 0 && mDist < 35) {
                 m.attackCooldown = 1.5;
-                p.hp -= m.atk;
-                b.floatingTexts.push({ x: p.x, y: p.y - 15, text: `-${m.atk}`, color: '#ff7777', life: 0.7 });
+                if (!p.isInvincible) {
+                    p.hp -= m.atk;
+                    b.floatingTexts.push({ x: p.x, y: p.y - 15, text: `-${m.atk}`, color: '#ff7777', life: 0.7 });
 
-                if (p.hp <= 0) {
-                    endAdventureBattle(false, `💀 몬스터 무리에게 쓰러졌습니다!`);
-                    return;
+                    if (p.hp <= 0) {
+                        endAdventureBattle(false, `💀 몬스터 무리에게 쓰러졌습니다!`);
+                        return;
+                    }
                 }
             }
         });
@@ -1593,6 +1714,47 @@
         document.getElementById('arena-boss-hp-bar').style.width = `${bHpPct}%`;
 
         document.getElementById('arena-timer').innerText = `⏱️ ${b.timeLeft.toFixed(1)}s`;
+    }
+
+    function performPlayerDash(dx, dy) {
+        const b = adventureBattleState;
+        if (!b) return;
+        const p = b.player;
+        p.dashCooldown = 1.8;
+        p.dashDuration = 0.25;
+        p.speed = p.baseSpeed * 2.8;
+        p.isInvincible = true;
+        window.SoundFX.playCoinSound();
+        b.floatingTexts.push({ x: p.x, y: p.y - 25, text: `💨 DASH!`, color: '#38bdf8', life: 0.5 });
+    }
+
+    function performPlayerSwordBeam() {
+        const b = adventureBattleState;
+        if (!b) return;
+        const p = b.player;
+        p.swordBeamCooldown = 3.5;
+        window.SoundFX.playAnvilHit(true);
+
+        // 보스를 향하거나 기본 우측으로 날아감
+        let dirX = b.boss.x - p.x;
+        let dirY = b.boss.y - p.y;
+        let dist = Math.hypot(dirX, dirY) || 1;
+        dirX /= dist;
+        dirY /= dist;
+
+        const beamSpeed = 380;
+        b.projectiles.push({
+            x: p.x + dirX * 20,
+            y: p.y + dirY * 20,
+            vx: dirX * beamSpeed,
+            vy: dirY * beamSpeed,
+            size: 16,
+            dmg: Math.floor(p.atk * 1.8),
+            life: 1.5,
+            hitBoss: false
+        });
+
+        b.floatingTexts.push({ x: p.x, y: p.y - 30, text: `🗡️ SWORD BEAM!`, color: '#67e8f9', life: 0.7 });
     }
 
     function performPlayerAttack() {
@@ -1700,6 +1862,36 @@
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(600, y); ctx.stroke();
         }
 
+        // 보스 특수 광역 장판 렌더링
+        if (b.telegraphs) {
+            b.telegraphs.forEach(t => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+                ctx.fillStyle = t.exploded ? 'rgba(239, 68, 68, 0.45)' : 'rgba(239, 68, 68, 0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        // 투사체 (검기) 렌더링
+        if (b.projectiles) {
+            b.projectiles.forEach(proj => {
+                ctx.save();
+                ctx.shadowColor = '#00e5ff';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = '#67e8f9';
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, proj.size / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
         // 미니언 그리기
         ctx.font = '20px sans-serif';
         ctx.textAlign = 'center';
@@ -1721,6 +1913,15 @@
 
         // 플레이어 & 무기 휘두르기 이펙트
         const p = b.player;
+        if (p.isInvincible) {
+            ctx.save();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size + 6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
         ctx.font = '26px sans-serif';
         ctx.fillText('🧙‍♂️', p.x, p.y);
 
@@ -1736,6 +1937,15 @@
             ctx.arc(p.x, p.y, 45, -Math.PI / 4, Math.PI / 2);
             ctx.stroke();
         }
+
+        // 스킬 쿨다운 HUD 표시 (대시 / 검기)
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = p.dashCooldown <= 0 ? '#38bdf8' : '#64748b';
+        ctx.fillText(`[Shift] 대시: ${p.dashCooldown <= 0 ? 'READY' : p.dashCooldown.toFixed(1) + 's'}`, 15, 325);
+        ctx.fillStyle = p.swordBeamCooldown <= 0 ? '#fbbf24' : '#64748b';
+        ctx.fillText(`[E] 검기: ${p.swordBeamCooldown <= 0 ? 'READY' : p.swordBeamCooldown.toFixed(1) + 's'}`, 130, 325);
+        ctx.textAlign = 'center';
 
         // 데미지 텍스트 렌더링
         ctx.font = 'bold 14px Cinzel, sans-serif';
@@ -2606,10 +2816,10 @@
             });
         }
 
-        // 키보드 이벤트 (WASD + Space)
+        // 키보드 이벤트 (WASD + Space + Shift + E)
         window.addEventListener('keydown', (e) => {
-            // RPG 전투 활성 상태일 때 Space 또는 방향키/WASD 기본 동작(스크롤, 포커스된 버튼 재클릭 등) 방지
-            const isMovementOrActionKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Space'].includes(e.code);
+            // RPG 전투 활성 상태일 때 Space, Shift, E 또는 방향키/WASD 기본 동작(스크롤, 포커스된 버튼 재클릭 등) 방지
+            const isMovementOrActionKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyE'].includes(e.code);
             if (isMovementOrActionKey && adventureBattleState && adventureBattleState.active) {
                 e.preventDefault();
             }
@@ -2619,8 +2829,14 @@
             if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = true;
             if (k === 's' || e.key === 'ArrowDown') playerKeys.s = true;
             if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = true;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                playerKeys.shift = true;
+            }
+            if (e.code === 'KeyE') {
+                playerKeys.e = true;
+            }
             if (e.code === 'Space') {
-                e.preventDefault(); // 스페이스바로 포커스된 버튼(출격/포기/모루 등)이 재트리거되어 전투가 초기화되는 문제 방지
+                e.preventDefault(); // 스페이스바로 포커스된 버튼 재트리거 방지
                 playerKeys.space = true;
                 if (adventureBattleState && adventureBattleState.active) {
                     performPlayerAttack();
@@ -2634,6 +2850,12 @@
             if (k === 'a' || e.key === 'ArrowLeft') playerKeys.a = false;
             if (k === 's' || e.key === 'ArrowDown') playerKeys.s = false;
             if (k === 'd' || e.key === 'ArrowRight') playerKeys.d = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                playerKeys.shift = false;
+            }
+            if (e.code === 'KeyE') {
+                playerKeys.e = false;
+            }
             if (e.code === 'Space') {
                 e.preventDefault();
                 playerKeys.space = false;
