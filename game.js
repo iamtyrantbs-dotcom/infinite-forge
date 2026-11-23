@@ -923,7 +923,9 @@
         'r_thunder': 4,
         'r_void': 5,
         'r_genesis': 6,
-        'r_singularity': 7
+        'r_singularity': 7,
+        'r_transcendence': 8,
+        'r_omnipotence': 9
     };
 
     function startAutoRune() {
